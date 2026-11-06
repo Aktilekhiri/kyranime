@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { signOut } from "@/app/actions";
 import { AnimeCard } from "@/components/AnimeCard";
 import { listContinueWatching, listFavorites } from "@/lib/data";
 import { getDict, getLocale, pick } from "@/lib/i18n";
-import { createClient, getUser } from "@/lib/supabase/server";
+import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Профиль" };
 export const dynamic = "force-dynamic";
@@ -29,6 +30,18 @@ export default async function ProfilePage() {
         <div>
           <h1 className="text-2xl font-bold">{profile?.username ?? "user"}</h1>
           <p className="text-sm text-snow-dim">{user.email}</p>
+        </div>
+        <div className="ml-auto flex flex-wrap justify-end gap-2">
+          {isAdminEmail(user.email) && (
+            <Link href="/admin" className="btn-ghost">
+              {t.admin}
+            </Link>
+          )}
+          <form action={signOut}>
+            <button type="submit" className="btn-ghost">
+              {t.logout}
+            </button>
+          </form>
         </div>
       </header>
 

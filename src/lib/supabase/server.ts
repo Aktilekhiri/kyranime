@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 export function isSupabaseConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
@@ -27,12 +28,13 @@ export async function createClient() {
   );
 }
 
-export async function getUser() {
+// cache(): в рамках одного запроса пользователь запрашивается у Supabase только раз
+export const getUser = cache(async () => {
   const supabase = await createClient();
   if (!supabase) return null;
   const { data } = await supabase.auth.getUser();
   return data.user;
-}
+});
 
 export function isAdminEmail(email: string | undefined | null): boolean {
   const admin = process.env.ADMIN_EMAIL?.trim().toLowerCase();
