@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { updateTitle } from "@/app/actions";
 import { AdminField } from "@/components/AdminField";
 import { PosterUploader } from "@/components/PosterUploader";
+import { ReleaseDaysField } from "@/components/ReleaseDaysField";
 import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
 import type { Title } from "@/lib/types";
 
@@ -73,6 +74,9 @@ export default async function EditTitlePage({ params }: { params: Promise<{ id: 
               defaultValue={title.description_ru ?? ""}
               className="input"
             />
+          </div>
+          <div className="sm:col-span-2">
+            <ReleaseDaysField defaultDays={title.release_days ?? []} />
           </div>
           <div>
             <label htmlFor="status" className="label">

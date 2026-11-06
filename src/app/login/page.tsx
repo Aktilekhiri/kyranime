@@ -3,7 +3,9 @@ import Link from "next/link";
 import { AuthForm } from "@/components/AuthForm";
 import { getDict, getLocale } from "@/lib/i18n";
 
-export const metadata: Metadata = { title: "Кирүү / Войти" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: getDict(await getLocale()).login };
+}
 
 export default async function LoginPage({
   searchParams,

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { addEpisode, addTitle } from "@/app/actions";
 import { AdminField } from "@/components/AdminField";
+import { ReleaseDaysField } from "@/components/ReleaseDaysField";
 import { listTitles } from "@/lib/data";
 import { getUser, isAdminEmail } from "@/lib/supabase/server";
 
@@ -66,6 +67,9 @@ export default async function AdminPage() {
               Описание (русский)
             </label>
             <textarea id="description_ru" name="description_ru" rows={3} className="input" />
+          </div>
+          <div className="sm:col-span-2">
+            <ReleaseDaysField />
           </div>
           <div>
             <label htmlFor="status" className="label">

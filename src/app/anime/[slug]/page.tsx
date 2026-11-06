@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteReview, submitReview, toggleFavorite } from "@/app/actions";
 import { getRating, getTitleBySlug, isFavorite, listEpisodes, listReviews } from "@/lib/data";
-import { getDict, getLocale, pick } from "@/lib/i18n";
+import { formatReleaseDays, getDict, getLocale, pick } from "@/lib/i18n";
 import { getUser, isAdminEmail } from "@/lib/supabase/server";
 
 type Params = Promise<{ slug: string }>;
@@ -73,6 +73,12 @@ export default async function AnimePage({ params }: { params: Params }) {
           </div>
 
           <p className="max-w-2xl text-snow-dim">{pick(title, "description", locale)}</p>
+          {formatReleaseDays(title.release_days, locale) && (
+            <p className="text-sm">
+              <span className="text-snow-dim">{t.releaseDays}:</span>{" "}
+              <span className="font-semibold text-neon">{formatReleaseDays(title.release_days, locale)}</span>
+            </p>
+          )}
           {title.dubbed_by && (
             <p className="text-sm">
               <span className="text-snow-dim">{t.dubbedBy}:</span> {title.dubbed_by}

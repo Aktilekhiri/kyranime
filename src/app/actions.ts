@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { getDict, getLocale } from "@/lib/i18n";
+import { THEMES, type Theme } from "@/lib/theme";
 import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
 
 export async function setLocale(locale: string, returnTo: string) {
@@ -15,34 +17,61 @@ export async function setLocale(locale: string, returnTo: string) {
   redirect(safePath(returnTo));
 }
 
+export async function setTheme(theme: Theme, returnTo: string) {
+  const store = await cookies();
+  store.set("theme", THEMES.includes(theme) ? theme : "dark", {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: "lax",
+  });
+  redirect(safePath(returnTo));
+}
+
 /** Разрешаем только внутренние пути, чтобы не было открытого редиректа. */
 function safePath(path: string): string {
   return path.startsWith("/") && !path.startsWith("//") ? path : "/";
 }
 
-export type AuthState = { error?: string } | undefined;
+export type AuthState = { error?: string; info?: string } | undefined;
+
+type Dictionary = ReturnType<typeof getDict>;
+
+/** Переводим типичные ошибки Supabase на язык сайта. */
+function authMessage(error: { code?: string; message: string }, t: Dictionary): string {
+  const code = error.code ?? "";
+  const msg = error.message.toLowerCase();
+  if (code === "invalid_credentials" || msg.includes("invalid login")) return t.errCredentials;
+  if (code === "email_not_confirmed" || msg.includes("not confirmed")) return t.errNotConfirmed;
+  if (code === "user_already_exists" || msg.includes("already registered")) return t.errExists;
+  if (code === "weak_password" || msg.includes("password")) return t.errPasswordShort;
+  return t.errGeneric;
+}
 
 export async function signIn(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  const t = getDict(await getLocale());
   const supabase = await createClient();
-  if (!supabase) return { error: "Supabase is not configured" };
+  if (!supabase) return { error: t.errGeneric };
   const { error } = await supabase.auth.signInWithPassword({
-    email: String(formData.get("email") ?? ""),
+    email: String(formData.get("email") ?? "").trim(),
     password: String(formData.get("password") ?? ""),
   });
-  if (error) return { error: error.message };
+  if (error) return { error: authMessage(error, t) };
   redirect(safePath(String(formData.get("next") ?? "/")));
 }
 
 export async function signUp(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  const t = getDict(await getLocale());
   const supabase = await createClient();
-  if (!supabase) return { error: "Supabase is not configured" };
+  if (!supabase) return { error: t.errGeneric };
   const password = String(formData.get("password") ?? "");
-  if (password.length < 8) return { error: "Password must be at least 8 characters" };
-  const { error } = await supabase.auth.signUp({
-    email: String(formData.get("email") ?? ""),
+  if (password.length < 8) return { error: t.errPasswordShort };
+  const { data, error } = await supabase.auth.signUp({
+    email: String(formData.get("email") ?? "").trim(),
     password,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: authMessage(error, t) };
+  // Если в Supabase включено подтверждение почты, сессии ещё нет: просим открыть письмо
+  if (!data.session) return { info: t.checkEmail };
   redirect(safePath(String(formData.get("next") ?? "/")));
 }
 
@@ -107,6 +136,13 @@ async function requireAdmin() {
   return (await createClient())!;
 }
 
+/** Дни выхода серий из чекбоксов: числа 1–7 (1 = понедельник). */
+function parseReleaseDays(formData: FormData): number[] {
+  return [...new Set(formData.getAll("release_days").map(Number))]
+    .filter((d) => Number.isInteger(d) && d >= 1 && d <= 7)
+    .sort((x, y) => x - y);
+}
+
 export async function addTitle(formData: FormData) {
   const supabase = await requireAdmin();
   const genres = String(formData.get("genres") ?? "")
@@ -123,6 +159,7 @@ export async function addTitle(formData: FormData) {
     poster_url: String(formData.get("poster_url") ?? "").trim() || null,
     year: Number(formData.get("year")) || null,
     genres,
+    release_days: parseReleaseDays(formData),
     status: formData.get("status") === "completed" ? "completed" : "ongoing",
     dubbed_by: String(formData.get("dubbed_by") ?? "").trim() || null,
   });
@@ -169,6 +206,7 @@ export async function updateTitle(formData: FormData) {
       poster_url: String(formData.get("poster_url") ?? "").trim() || null,
       year: Number(formData.get("year")) || null,
       genres,
+      release_days: parseReleaseDays(formData),
       status: formData.get("status") === "completed" ? "completed" : "ongoing",
       dubbed_by: String(formData.get("dubbed_by") ?? "").trim() || null,
     })

@@ -25,6 +25,7 @@ function t(
     banner_url: null,
     year,
     genres,
+    release_days: [],
     status,
     dubbed_by: null,
     created_at: NOW,

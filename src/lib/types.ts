@@ -10,6 +10,7 @@ export type Title = {
   banner_url: string | null;
   year: number | null;
   genres: string[];
+  release_days: number[];
   status: "ongoing" | "completed";
   dubbed_by: string | null;
   created_at: string;

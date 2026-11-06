@@ -3,7 +3,9 @@ import { AnimeCard } from "@/components/AnimeCard";
 import { listTitles } from "@/lib/data";
 import { getDict, getLocale } from "@/lib/i18n";
 
-export const metadata: Metadata = { title: "Поиск" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: getDict(await getLocale()).search };
+}
 
 export default async function SearchPage({
   searchParams,

@@ -7,7 +7,9 @@ import { listContinueWatching, listFavorites } from "@/lib/data";
 import { getDict, getLocale, pick } from "@/lib/i18n";
 import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
 
-export const metadata: Metadata = { title: "Профиль" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: getDict(await getLocale()).profile };
+}
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {

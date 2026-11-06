@@ -39,6 +39,11 @@ export function AuthForm({ mode, next, labels }: { mode: "login" | "register"; n
           {state.error}
         </p>
       )}
+      {state?.info && (
+        <p role="status" className="text-sm font-medium text-neon">
+          {state.info}
+        </p>
+      )}
       <button type="submit" disabled={pending} className="btn-primary w-full">
         {mode === "login" ? labels.login : labels.register}
       </button>

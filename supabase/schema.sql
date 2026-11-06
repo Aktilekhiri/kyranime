@@ -41,6 +41,7 @@ create table if not exists public.titles (
   banner_url text,
   year int,
   genres text[] not null default '{}',
+  release_days smallint[] not null default '{}',  -- дни выхода серий: 1 = понедельник … 7 = воскресенье
   status text not null default 'ongoing' check (status in ('ongoing', 'completed')),
   dubbed_by text,                  -- команда озвучки
   created_at timestamptz not null default now()
@@ -149,3 +150,7 @@ create policy "posters admin update" on storage.objects
   for update using (bucket_id = 'posters' and public.is_admin());
 create policy "posters admin delete" on storage.objects
   for delete using (bucket_id = 'posters' and public.is_admin());
+
+-- ───────── Миграция: дни выхода серий ─────────
+-- Если базу ты создал раньше, выполни только эту строку:
+alter table public.titles add column if not exists release_days smallint[] not null default '{}';

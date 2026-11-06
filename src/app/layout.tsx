@@ -5,6 +5,7 @@ import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { getDict, getLocale } from "@/lib/i18n";
 import { getUser, isSupabaseConfigured } from "@/lib/supabase/server";
+import { getTheme } from "@/lib/theme";
 
 export const metadata: Metadata = {
   title: { default: "KyrAnime — Аниме кыргыз тилинде", template: "%s · KyrAnime" },
@@ -16,6 +17,7 @@ export const viewport: Viewport = { themeColor: "#0a0a0a" };
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
   const t = getDict(locale);
+  const theme = await getTheme();
   const user = isSupabaseConfigured() ? await getUser() : null;
 
   const bottomItems = [
@@ -27,7 +29,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   ];
 
   return (
-    <html lang={locale === "ky" ? "ky" : "ru"}>
+    <html lang={locale === "ky" ? "ky" : "ru"} data-theme={theme}>
       <body className="flex min-h-screen flex-col">
         <Header />
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6">{children}</main>

@@ -4,7 +4,9 @@ import { AnimeCard } from "@/components/AnimeCard";
 import { listTitles } from "@/lib/data";
 import { getDict, getLocale } from "@/lib/i18n";
 
-export const metadata: Metadata = { title: "Каталог" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: getDict(await getLocale()).catalog };
+}
 export const dynamic = "force-dynamic";
 
 export default async function CatalogPage({

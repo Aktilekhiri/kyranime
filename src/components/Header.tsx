@@ -4,6 +4,7 @@ import { getDict, getLocale } from "@/lib/i18n";
 import { getUser, isAdminEmail, isSupabaseConfigured } from "@/lib/supabase/server";
 import { LangSwitch } from "./LangSwitch";
 import { NavLinks } from "./NavLinks";
+import { ThemeSwitch } from "./ThemeSwitch";
 
 export async function Header() {
   const locale = await getLocale();
@@ -26,17 +27,19 @@ export async function Header() {
 
         <NavLinks items={links} />
 
-        <form
-          action="/search"
-          className="order-last w-full md:order-none md:ml-2 md:w-auto md:max-w-xs md:flex-1"
-        >
-          <label htmlFor="q" className="sr-only">
-            {t.search}
-          </label>
-          <input id="q" name="q" type="search" placeholder={t.searchPlaceholder} className="input" />
-        </form>
+        <div className="order-last flex w-full items-center gap-3 md:order-none md:ml-2 md:w-auto md:max-w-xs md:flex-1">
+          <form action="/search" className="min-w-0 flex-1">
+            <label htmlFor="q" className="sr-only">
+              {t.search}
+            </label>
+            <input id="q" name="q" type="search" placeholder={t.searchPlaceholder} className="input" />
+          </form>
+          {/* На телефоне кружки тем рядом с поиском, на ПК справа в шапке */}
+          <ThemeSwitch className="flex md:hidden" />
+        </div>
 
         <div className="ml-auto flex items-center gap-2">
+          <ThemeSwitch className="hidden md:flex" />
           <LangSwitch current={locale} />
           {user ? (
             <form action={signOut} className="hidden md:block">

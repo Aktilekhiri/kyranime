@@ -14,7 +14,7 @@ const dict = {
     watch: "Көрүү",
     home: "Башкы бет",
     allGenres: "Бардыгы",
-    catalogCount: "тайтл",
+    catalogCount: "аниме",
     catalog: "Каталог",
     search: "Издөө",
     searchPlaceholder: "Аниме издөө...",
@@ -34,10 +34,10 @@ const dict = {
     register: "Катталуу",
     logout: "Чыгуу",
     email: "Электрондук почта",
-    password: "Сыр сөз",
+    password: "Сырсөз",
     profile: "Профиль",
     favorites: "Тандалмалар",
-    continueWatching: "Улантуу",
+    continueWatching: "Көрүүнү улантуу",
     addFavorite: "Тандалмага кошуу",
     removeFavorite: "Тандалмадан алуу",
     nothingYet: "Азырынча бош",
@@ -54,6 +54,17 @@ const dict = {
     footerNote: "Күйөрмандар тарабынан, күйөрмандар үчүн. Коммерциялык максат жок.",
     demoNotice: "Демо режим: Supabase туташтырылган жок.",
     langName: "Кыргызча",
+    theme: "Тема",
+    themeDark: "Караңгы",
+    themeLight: "Жарык",
+    themeBlue: "Көк",
+    releaseDays: "Жаңы серия чыгат",
+    errPasswordShort: "Сырсөз кеминде 8 белгиден турушу керек",
+    errCredentials: "Электрондук почта же сырсөз туура эмес",
+    errNotConfirmed: "Алгач почтаңызды ырастаңыз: сизге кат жөнөтүлдү",
+    errExists: "Бул почта менен мурда катталган. Кирүү баскычын колдонуңуз",
+    errGeneric: "Ката кетти. Кайра аракет кылыңыз",
+    checkEmail: "Почтаңызга ырастоо каты жөнөтүлдү. Катты ачып, шилтемени басыңыз",
   },
   ru: {
     brand: "KyrAnime",
@@ -103,6 +114,17 @@ const dict = {
     footerNote: "Сделано фанатами для фанатов. Без коммерческой цели.",
     demoNotice: "Демо-режим: Supabase не подключён.",
     langName: "Русский",
+    theme: "Тема",
+    themeDark: "Тёмная",
+    themeLight: "Светлая",
+    themeBlue: "Синяя",
+    releaseDays: "Новые серии выходят",
+    errPasswordShort: "Пароль должен содержать не менее 8 символов",
+    errCredentials: "Неверная почта или пароль",
+    errNotConfirmed: "Сначала подтвердите почту: мы отправили вам письмо",
+    errExists: "Эта почта уже зарегистрирована. Попробуйте войти",
+    errGeneric: "Что-то пошло не так. Попробуйте ещё раз",
+    checkEmail: "Мы отправили письмо для подтверждения. Откройте его и перейдите по ссылке",
   },
 } as const;
 
@@ -128,4 +150,19 @@ export function pick<T extends Record<string, unknown>>(
   const primary = row[`${base}_${locale}`];
   const fallback = row[`${base}_${locale === "ky" ? "ru" : "ky"}`];
   return String(primary ?? fallback ?? "");
+}
+
+/** Дни недели для расписания выхода серий: индекс 0 = понедельник … 6 = воскресенье. */
+export const WEEKDAYS: Record<Locale, string[]> = {
+  ky: ["Дүйшөмбү", "Шейшемби", "Шаршемби", "Бейшемби", "Жума", "Ишемби", "Жекшемби"],
+  ru: ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"],
+};
+
+/** Список дней выхода (числа 1–7, где 1 = понедельник) → «Жума, Жекшемби». */
+export function formatReleaseDays(days: number[] | null | undefined, locale: Locale): string {
+  return [...new Set(days ?? [])]
+    .filter((d) => d >= 1 && d <= 7)
+    .sort((a, b) => a - b)
+    .map((d) => WEEKDAYS[locale][d - 1])
+    .join(", ");
 }
