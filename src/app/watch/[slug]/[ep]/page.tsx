@@ -5,6 +5,7 @@ import { Player } from "@/components/Player";
 import { getProgress, getTitleBySlug, listEpisodes } from "@/lib/data";
 import { getDict, getLocale, pick } from "@/lib/i18n";
 import { getUser } from "@/lib/supabase/server";
+import { bunnyEmbedUrl } from "@/lib/video";
 
 type Params = Promise<{ slug: string; ep: string }>;
 
@@ -39,7 +40,8 @@ export default async function WatchPage({ params }: { params: Params }) {
   const locale = await getLocale();
   const t = getDict(locale);
   const user = await getUser();
-  const startAt = user ? await getProgress(user.id, episode.id) : 0;
+  const embedSrc = bunnyEmbedUrl(episode.hls_url);
+  const startAt = user && !embedSrc ? await getProgress(user.id, episode.id) : 0;
 
   return (
     <div className="space-y-6">
@@ -57,14 +59,29 @@ export default async function WatchPage({ params }: { params: Params }) {
         </p>
       </div>
 
-      <Player
-        key={episode.id}
-        src={episode.hls_url}
-        episodeId={episode.id}
-        startAt={startAt}
-        nextHref={next ? href(next) : null}
-        canSave={Boolean(user)}
-      />
+      {embedSrc ? (
+        // Ссылка от Bunny (player.mediadelivery.net): показываем его плеер целиком
+        <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
+          <iframe
+            key={episode.id}
+            src={embedSrc}
+            title={`${pick(title, "title", locale)} · ${episode.number}`}
+            loading="lazy"
+            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen"
+            allowFullScreen
+            className="absolute inset-0 size-full border-0"
+          />
+        </div>
+      ) : (
+        <Player
+          key={episode.id}
+          src={episode.hls_url}
+          episodeId={episode.id}
+          startAt={startAt}
+          nextHref={next ? href(next) : null}
+          canSave={Boolean(user)}
+        />
+      )}
 
       <div className="flex flex-wrap gap-3">
         {prev && (
