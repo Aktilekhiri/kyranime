@@ -105,23 +105,40 @@ export default async function AnimePage({ params }: { params: Params }) {
 
       <section>
         <h2 className="mb-4 text-xl font-bold">{t.episodes}</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-          {episodes.map((ep) => (
-            <Link
-              key={ep.id}
-              href={`/watch/${title.slug}/${ep.season}-${ep.number}`}
-              className="card px-3 py-3 text-sm transition hover:border-neon"
-            >
-              <span className="font-semibold">
-                {ep.number} {t.episode}
-              </span>
-              {ep.season > 1 && <span className="ml-1 text-snow-dim">· S{ep.season}</span>}
-              {pick(ep, "name", locale) && (
-                <span className="mt-1 block line-clamp-1 text-xs text-snow-dim">{pick(ep, "name", locale)}</span>
-              )}
-            </Link>
-          ))}
-        </div>
+        <ol className="max-w-2xl space-y-2">
+          {episodes.map((ep) => {
+            const epName = pick(ep, "name", locale);
+            return (
+              <li key={ep.id}>
+                <Link
+                  href={`/watch/${title.slug}/${ep.season}-${ep.number}`}
+                  className="card group flex items-center gap-4 px-4 py-3 transition hover:border-neon"
+                >
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-ink-100 text-lg font-bold group-hover:bg-neon group-hover:text-ink">
+                    {ep.number}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold">
+                      {ep.number} {t.episode}
+                      {ep.season > 1 && <span className="ml-1 font-normal text-snow-dim">· S{ep.season}</span>}
+                    </span>
+                    {epName && <span className="mt-0.5 line-clamp-2 block text-sm text-snow-dim">{epName}</span>}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-3 text-xs text-snow-dim">
+                    {ep.duration_sec ? (
+                      <span>
+                        {Math.round(ep.duration_sec / 60)} {t.minutesShort}
+                      </span>
+                    ) : null}
+                    <svg viewBox="0 0 24 24" className="size-5 group-hover:text-neon" fill="currentColor" aria-hidden="true">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ol>
       </section>
 
       <section className="max-w-2xl space-y-6">
