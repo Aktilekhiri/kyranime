@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-ink text-snow antialiased;
+  }
+  ::selection {
+    @apply bg-neon text-ink;
+  }
+  :focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-neon;
+  }
+}
+
+@layer components {
+  /* Зелёный — только для главных действий (10% палитры) */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-neon px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-neon-dark disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-ink-300 px-4 py-2 text-sm font-medium text-snow transition hover:border-snow;
+  }
+  .input {
+    @apply w-full rounded-lg border border-ink-300 bg-ink-50 px-3 py-2.5 text-sm text-snow placeholder:text-snow-dim focus:border-neon focus:outline-none;
+  }
+  .label {
+    @apply mb-1 block text-xs font-medium uppercase tracking-wide text-snow-dim;
+  }
+  .card {
+    @apply rounded-xl border border-ink-200 bg-ink-50;
+  }
+}
