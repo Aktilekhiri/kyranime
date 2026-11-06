@@ -149,3 +149,77 @@ export async function deleteReview(formData: FormData) {
   await supabase.from("reviews").delete().eq("id", String(formData.get("id")));
   revalidatePath(`/anime/${String(formData.get("slug"))}`);
 }
+
+export async function updateTitle(formData: FormData) {
+  const supabase = await requireAdmin();
+  const id = String(formData.get("id"));
+  const genres = String(formData.get("genres") ?? "")
+    .split(",")
+    .map((g) => g.trim())
+    .filter(Boolean);
+
+  const { data } = await supabase
+    .from("titles")
+    .update({
+      title_ky: String(formData.get("title_ky")).trim(),
+      title_ru: String(formData.get("title_ru")).trim(),
+      title_orig: String(formData.get("title_orig") ?? "").trim() || null,
+      description_ky: String(formData.get("description_ky") ?? "").trim() || null,
+      description_ru: String(formData.get("description_ru") ?? "").trim() || null,
+      poster_url: String(formData.get("poster_url") ?? "").trim() || null,
+      year: Number(formData.get("year")) || null,
+      genres,
+      status: formData.get("status") === "completed" ? "completed" : "ongoing",
+      dubbed_by: String(formData.get("dubbed_by") ?? "").trim() || null,
+    })
+    .eq("id", id)
+    .select("slug")
+    .maybeSingle();
+
+  revalidatePath("/");
+  revalidatePath("/catalog");
+  revalidatePath("/admin");
+  if (data?.slug) revalidatePath(`/anime/${data.slug}`);
+  redirect("/admin");
+}
+
+export type PosterState = { ok?: boolean; error?: string; url?: string };
+
+const POSTER_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+/** Загрузка постера в Supabase Storage (bucket "posters") и запись ссылки в тайтл. */
+export async function uploadPoster(formData: FormData): Promise<PosterState> {
+  const supabase = await requireAdmin();
+  const titleId = String(formData.get("title_id") ?? "");
+  const file = formData.get("poster");
+
+  if (!(file instanceof File) || file.size === 0) return { error: "Файл не выбран" };
+  const ext = POSTER_TYPES[file.type];
+  if (!ext) return { error: "Нужна картинка JPG, PNG или WebP" };
+  if (file.size > 3 * 1024 * 1024) return { error: "Файл больше 3 МБ" };
+
+  const path = `${titleId}-${Date.now()}.${ext}`;
+  const { error: upErr } = await supabase.storage
+    .from("posters")
+    .upload(path, file, { contentType: file.type, cacheControl: "31536000" });
+  if (upErr) return { error: `Не удалось загрузить: ${upErr.message}` };
+
+  const { data: pub } = supabase.storage.from("posters").getPublicUrl(path);
+  const { data: title, error: dbErr } = await supabase
+    .from("titles")
+    .update({ poster_url: pub.publicUrl })
+    .eq("id", titleId)
+    .select("slug")
+    .maybeSingle();
+  if (dbErr) return { error: `Файл загружен, но ссылка не сохранилась: ${dbErr.message}` };
+
+  revalidatePath("/");
+  revalidatePath("/catalog");
+  revalidatePath("/admin");
+  if (title?.slug) revalidatePath(`/anime/${title.slug}`);
+  return { ok: true, url: pub.publicUrl };
+}

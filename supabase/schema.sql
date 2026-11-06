@@ -134,3 +134,18 @@ create policy "reviews delete own" on public.reviews for delete using (auth.uid(
 -- Избранное и прогресс — только свои
 create policy "favorites own" on public.favorites for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "progress own" on public.watch_progress for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- ───────── Хранилище постеров (Storage) ─────────
+-- Публичный bucket: читать может любой, загружать и менять только админ.
+insert into storage.buckets (id, name, public)
+values ('posters', 'posters', true)
+on conflict (id) do nothing;
+
+create policy "posters public read" on storage.objects
+  for select using (bucket_id = 'posters');
+create policy "posters admin insert" on storage.objects
+  for insert with check (bucket_id = 'posters' and public.is_admin());
+create policy "posters admin update" on storage.objects
+  for update using (bucket_id = 'posters' and public.is_admin());
+create policy "posters admin delete" on storage.objects
+  for delete using (bucket_id = 'posters' and public.is_admin());

@@ -1,34 +1,13 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { addEpisode, addTitle } from "@/app/actions";
+import { AdminField } from "@/components/AdminField";
 import { listTitles } from "@/lib/data";
 import { getUser, isAdminEmail } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Админка" };
 export const dynamic = "force-dynamic";
-
-function Field({
-  label,
-  name,
-  required,
-  type = "text",
-  placeholder,
-}: {
-  label: string;
-  name: string;
-  required?: boolean;
-  type?: string;
-  placeholder?: string;
-}) {
-  return (
-    <div>
-      <label htmlFor={name} className="label">
-        {label}
-      </label>
-      <input id={name} name={name} type={type} required={required} placeholder={placeholder} className="input" />
-    </div>
-  );
-}
 
 export default async function AdminPage() {
   const user = await getUser();
@@ -41,16 +20,41 @@ export default async function AdminPage() {
       <h1 className="text-2xl font-bold">Админка</h1>
 
       <section className="space-y-4">
+        <h2 className="text-xl font-bold">Тайтлы</h2>
+        {titles.length === 0 ? (
+          <p className="text-sm text-snow-dim">Пока пусто. Добавь первый тайтл ниже.</p>
+        ) : (
+          <ul className="space-y-2">
+            {titles.map((t) => (
+              <li key={t.id}>
+                <Link
+                  href={`/admin/title/${t.id}`}
+                  className="card flex items-center justify-between gap-3 px-4 py-3 transition hover:border-neon"
+                >
+                  <span className="font-semibold">
+                    {t.title_ru} <span className="font-normal text-snow-dim">/ {t.title_ky}</span>
+                  </span>
+                  <span className="shrink-0 text-xs text-snow-dim">
+                    {t.poster_url ? "Постер есть" : "Нет постера"} · Изменить →
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-4">
         <h2 className="text-xl font-bold">Новый тайтл</h2>
         <form action={addTitle} className="card grid gap-4 p-5 sm:grid-cols-2">
-          <Field label="Slug (латиницей, для адреса)" name="slug" required placeholder="one-piece" />
-          <Field label="Название (кыргызча)" name="title_ky" required />
-          <Field label="Название (русский)" name="title_ru" required />
-          <Field label="Оригинальное название" name="title_orig" />
-          <Field label="Год" name="year" type="number" />
-          <Field label="Жанры (через запятую)" name="genres" placeholder="Экшен, Драма" />
-          <Field label="Ссылка на постер" name="poster_url" type="url" />
-          <Field label="Команда озвучки" name="dubbed_by" />
+          <AdminField label="Slug (латиницей, для адреса)" name="slug" required placeholder="one-piece" />
+          <AdminField label="Название (кыргызча)" name="title_ky" required />
+          <AdminField label="Название (русский)" name="title_ru" required />
+          <AdminField label="Оригинальное название" name="title_orig" />
+          <AdminField label="Год" name="year" type="number" />
+          <AdminField label="Жанры (через запятую)" name="genres" placeholder="Экшен, Драма" />
+          <AdminField label="Ссылка на постер" name="poster_url" type="url" />
+          <AdminField label="Команда озвучки" name="dubbed_by" />
           <div className="sm:col-span-2">
             <label htmlFor="description_ky" className="label">
               Описание (кыргызча)
@@ -95,12 +99,12 @@ export default async function AdminPage() {
               ))}
             </select>
           </div>
-          <Field label="Ссылка на HLS (master.m3u8)" name="hls_url" type="url" required placeholder="https://.../master.m3u8" />
-          <Field label="Сезон" name="season" type="number" placeholder="1" />
-          <Field label="Номер серии" name="number" type="number" required />
-          <Field label="Название серии (кыргызча)" name="name_ky" />
-          <Field label="Название серии (русский)" name="name_ru" />
-          <Field label="Длительность, минут" name="duration_min" type="number" placeholder="24" />
+          <AdminField label="Ссылка на HLS (master.m3u8)" name="hls_url" type="url" required placeholder="https://.../master.m3u8" />
+          <AdminField label="Сезон" name="season" type="number" placeholder="1" />
+          <AdminField label="Номер серии" name="number" type="number" required />
+          <AdminField label="Название серии (кыргызча)" name="name_ky" />
+          <AdminField label="Название серии (русский)" name="name_ru" />
+          <AdminField label="Длительность, минут" name="duration_min" type="number" placeholder="24" />
           <div className="flex items-end">
             <button type="submit" className="btn-primary">
               Добавить серию
