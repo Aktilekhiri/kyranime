@@ -6,7 +6,7 @@ import { AdminField } from "@/components/AdminField";
 import { PosterUploader } from "@/components/PosterUploader";
 import { ReleaseDaysField } from "@/components/ReleaseDaysField";
 import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
-import type { Title } from "@/lib/types";
+import type { Episode, Title } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Редактирование тайтла" };
 export const dynamic = "force-dynamic";
@@ -20,6 +20,15 @@ export default async function EditTitlePage({ params }: { params: Promise<{ id: 
   const { data } = await supabase!.from("titles").select("*").eq("id", id).maybeSingle();
   if (!data) notFound();
   const title = data as Title;
+
+  // Админ видит все серии, в том числе скрытые (политика RLS)
+  const { data: epRows } = await supabase!
+    .from("episodes")
+    .select("*")
+    .eq("title_id", id)
+    .order("season")
+    .order("number");
+  const episodes = (epRows ?? []) as Episode[];
 
   return (
     <div className="space-y-8">
@@ -94,6 +103,41 @@ export default async function EditTitlePage({ params }: { params: Promise<{ id: 
           </div>
         </form>
       </div>
+
+      <section className="max-w-2xl space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-xl font-bold">Серии ({episodes.length})</h2>
+          <Link href="/admin#new-episode" className="btn-primary">
+            + Новая серия
+          </Link>
+        </div>
+        {episodes.length === 0 ? (
+          <p className="text-sm text-snow-dim">Серий пока нет.</p>
+        ) : (
+          <ul className="space-y-2">
+            {episodes.map((ep) => (
+              <li key={ep.id}>
+                <Link
+                  href={`/admin/episode/${ep.id}`}
+                  className="card flex items-center justify-between gap-3 px-4 py-3 transition hover:border-neon"
+                >
+                  <span className="min-w-0">
+                    <span className="font-semibold">
+                      {ep.season > 1 && `С${ep.season} · `}Серия {ep.number}
+                    </span>
+                    {(ep.name_ky || ep.name_ru) && (
+                      <span className="block truncate text-sm text-snow-dim">{ep.name_ky || ep.name_ru}</span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-xs text-snow-dim">
+                    {ep.published ? "" : "Скрыта · "}Изменить →
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

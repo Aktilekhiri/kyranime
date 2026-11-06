@@ -149,7 +149,7 @@ export async function addTitle(formData: FormData) {
     .split(",")
     .map((g) => g.trim())
     .filter(Boolean);
-  await supabase.from("titles").insert({
+  const { error } = await supabase.from("titles").insert({
     slug: String(formData.get("slug")).trim().toLowerCase(),
     title_ky: String(formData.get("title_ky")).trim(),
     title_ru: String(formData.get("title_ru")).trim(),
@@ -163,24 +163,81 @@ export async function addTitle(formData: FormData) {
     status: formData.get("status") === "completed" ? "completed" : "ongoing",
     dubbed_by: String(formData.get("dubbed_by") ?? "").trim() || null,
   });
+  if (error) redirect("/admin?error=title");
   revalidateTag("catalog");
   revalidatePath("/");
   revalidatePath("/admin");
 }
 
+function revalidateCatalogPages() {
+  revalidateTag("catalog");
+  revalidatePath("/");
+  revalidatePath("/catalog");
+  revalidatePath("/anime/[slug]", "page");
+  revalidatePath("/watch/[slug]/[ep]", "page");
+  revalidatePath("/admin");
+}
+
 export async function addEpisode(formData: FormData) {
   const supabase = await requireAdmin();
-  await supabase.from("episodes").insert({
-    title_id: String(formData.get("title_id")),
+  const titleId = String(formData.get("title_id"));
+  const hlsUrl = String(formData.get("hls_url") ?? "").trim();
+  const minutes = Number(formData.get("duration_min"));
+
+  if (!hlsUrl.startsWith("https://")) redirect("/admin?error=url");
+  const { error } = await supabase.from("episodes").insert({
+    title_id: titleId,
     season: Number(formData.get("season")) || 1,
     number: Number(formData.get("number")),
     name_ky: String(formData.get("name_ky") ?? "").trim() || null,
     name_ru: String(formData.get("name_ru") ?? "").trim() || null,
-    hls_url: String(formData.get("hls_url")).trim(),
-    duration_sec: Number(formData.get("duration_min")) ? Number(formData.get("duration_min")) * 60 : null,
+    hls_url: hlsUrl,
+    duration_sec: minutes > 0 ? Math.round(minutes * 60) : null,
   });
-  revalidateTag("catalog");
-  revalidatePath("/admin");
+  if (error) redirect("/admin?error=episode");
+
+  revalidateCatalogPages();
+  redirect(`/admin/title/${titleId}`);
+}
+
+export async function updateEpisode(formData: FormData) {
+  const supabase = await requireAdmin();
+  const id = String(formData.get("id"));
+  const hlsUrl = String(formData.get("hls_url") ?? "").trim();
+  const minutes = Number(formData.get("duration_min"));
+
+  if (!hlsUrl.startsWith("https://")) redirect(`/admin/episode/${id}?error=url`);
+  const { data, error } = await supabase
+    .from("episodes")
+    .update({
+      season: Number(formData.get("season")) || 1,
+      number: Number(formData.get("number")),
+      name_ky: String(formData.get("name_ky") ?? "").trim() || null,
+      name_ru: String(formData.get("name_ru") ?? "").trim() || null,
+      hls_url: hlsUrl,
+      duration_sec: minutes > 0 ? Math.round(minutes * 60) : null,
+      published: formData.get("published") === "on",
+    })
+    .eq("id", id)
+    .select("title_id")
+    .maybeSingle();
+  if (error || !data) redirect(`/admin/episode/${id}?error=save`);
+
+  revalidateCatalogPages();
+  redirect(`/admin/title/${data.title_id}`);
+}
+
+export async function deleteEpisode(formData: FormData) {
+  const supabase = await requireAdmin();
+  const id = String(formData.get("id"));
+  const titleId = String(formData.get("title_id"));
+  if (formData.get("confirm") !== "yes") redirect(`/admin/episode/${id}?error=confirm`);
+
+  const { error } = await supabase.from("episodes").delete().eq("id", id);
+  if (error) redirect(`/admin/episode/${id}?error=save`);
+
+  revalidateCatalogPages();
+  redirect(`/admin/title/${titleId}`);
 }
 
 export async function deleteReview(formData: FormData) {

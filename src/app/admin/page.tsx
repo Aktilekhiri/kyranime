@@ -10,7 +10,14 @@ import { getUser, isAdminEmail } from "@/lib/supabase/server";
 export const metadata: Metadata = { title: "Админка" };
 export const dynamic = "force-dynamic";
 
-export default async function AdminPage() {
+const ERRORS: Record<string, string> = {
+  title: "Тайтл не добавлен: такой slug уже есть или поле заполнено неверно.",
+  episode: "Серия не добавлена: серия с таким сезоном и номером уже есть или поле заполнено неверно.",
+  url: "Ссылка на видео должна начинаться с https://",
+};
+
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error } = await searchParams;
   const user = await getUser();
   if (!user || !isAdminEmail(user.email)) redirect("/");
 
@@ -19,6 +26,12 @@ export default async function AdminPage() {
   return (
     <div className="space-y-12">
       <h1 className="text-2xl font-bold">Админка</h1>
+
+      {error && (
+        <p role="alert" className="card border-neon px-4 py-3 text-sm">
+          {ERRORS[error] ?? "Не удалось сохранить."}
+        </p>
+      )}
 
       <section className="space-y-4">
         <h2 className="text-xl font-bold">Тайтлы</h2>
@@ -88,7 +101,7 @@ export default async function AdminPage() {
         </form>
       </section>
 
-      <section className="space-y-4">
+      <section id="new-episode" className="scroll-mt-24 space-y-4">
         <h2 className="text-xl font-bold">Новая серия</h2>
         <form action={addEpisode} className="card grid gap-4 p-5 sm:grid-cols-2">
           <div>
