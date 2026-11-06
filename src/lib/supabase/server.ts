@@ -36,6 +36,19 @@ export const getUser = cache(async () => {
   return data.user;
 });
 
+export type Viewer = { id: string; email: string | null };
+
+// Для показа интерфейса (шапка, избранное, прогресс). getClaims проверяет подпись токена
+// на месте, без сетевого запроса к Supabase. Для изменения данных и админки остаётся getUser().
+export const getViewer = cache(async (): Promise<Viewer | null> => {
+  const supabase = await createClient();
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (!claims?.sub) return null;
+  return { id: claims.sub, email: typeof claims.email === "string" ? claims.email : null };
+});
+
 export function isAdminEmail(email: string | undefined | null): boolean {
   const admin = process.env.ADMIN_EMAIL?.trim().toLowerCase();
   return Boolean(admin && email && email.toLowerCase() === admin);

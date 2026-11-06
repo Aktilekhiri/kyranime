@@ -1,5 +1,7 @@
 import { DEMO_EPISODES, DEMO_TITLES } from "./demo";
-import { createClient } from "./supabase/server";
+import { unstable_cache } from "next/cache";
+import { createPublicClient } from "./supabase/public";
+import { createClient, isSupabaseConfigured } from "./supabase/server";
 import type { Episode, Rating, Review, Title } from "./types";
 
 /** Убираем символы, которые ломают фильтр PostgREST. */
@@ -7,11 +9,55 @@ function cleanQuery(q: string): string {
   return q.replace(/[%,()*\\]/g, " ").trim().slice(0, 80);
 }
 
+// Публичные данные каталога кэшируются на минуту и сбрасываются тегом "catalog",
+// когда админ меняет тайтлы или серии (см. revalidateTag в actions.ts).
+const CATALOG = { revalidate: 60, tags: ["catalog"] };
+
+const fetchTitles = unstable_cache(
+  async (q: string): Promise<Title[]> => {
+    const supabase = createPublicClient()!;
+    let req = supabase.from("titles").select("*").order("created_at", { ascending: false });
+    if (q) req = req.or(`title_ky.ilike.%${q}%,title_ru.ilike.%${q}%,title_orig.ilike.%${q}%`);
+    const { data, error } = await req;
+    if (error) throw error; // ошибки не кэшируются
+    return (data ?? []) as Title[];
+  },
+  ["titles"],
+  CATALOG,
+);
+
+const fetchTitleBySlug = unstable_cache(
+  async (slug: string): Promise<Title | null> => {
+    const supabase = createPublicClient()!;
+    const { data, error } = await supabase.from("titles").select("*").eq("slug", slug).maybeSingle();
+    if (error) throw error;
+    return (data as Title | null) ?? null;
+  },
+  ["title-by-slug"],
+  CATALOG,
+);
+
+const fetchEpisodes = unstable_cache(
+  async (titleId: string): Promise<Episode[]> => {
+    const supabase = createPublicClient()!;
+    const { data, error } = await supabase
+      .from("episodes")
+      .select("*")
+      .eq("title_id", titleId)
+      .eq("published", true)
+      .order("season")
+      .order("number");
+    if (error) throw error;
+    return (data ?? []) as Episode[];
+  },
+  ["episodes"],
+  CATALOG,
+);
+
 export async function listTitles(query?: string): Promise<Title[]> {
-  const supabase = await createClient();
   const q = query ? cleanQuery(query) : "";
 
-  if (!supabase) {
+  if (!isSupabaseConfigured()) {
     const needle = q.toLowerCase();
     return DEMO_TITLES.filter(
       (t) =>
@@ -20,32 +66,29 @@ export async function listTitles(query?: string): Promise<Title[]> {
     );
   }
 
-  let req = supabase.from("titles").select("*").order("created_at", { ascending: false });
-  if (q) {
-    req = req.or(`title_ky.ilike.%${q}%,title_ru.ilike.%${q}%,title_orig.ilike.%${q}%`);
+  try {
+    return await fetchTitles(q);
+  } catch {
+    return [];
   }
-  const { data } = await req;
-  return (data ?? []) as Title[];
 }
 
 export async function getTitleBySlug(slug: string): Promise<Title | null> {
-  const supabase = await createClient();
-  if (!supabase) return DEMO_TITLES.find((t) => t.slug === slug) ?? null;
-  const { data } = await supabase.from("titles").select("*").eq("slug", slug).maybeSingle();
-  return (data as Title | null) ?? null;
+  if (!isSupabaseConfigured()) return DEMO_TITLES.find((t) => t.slug === slug) ?? null;
+  try {
+    return await fetchTitleBySlug(slug);
+  } catch {
+    return null;
+  }
 }
 
 export async function listEpisodes(titleId: string): Promise<Episode[]> {
-  const supabase = await createClient();
-  if (!supabase) return DEMO_EPISODES.filter((e) => e.title_id === titleId);
-  const { data } = await supabase
-    .from("episodes")
-    .select("*")
-    .eq("title_id", titleId)
-    .eq("published", true)
-    .order("season")
-    .order("number");
-  return (data ?? []) as Episode[];
+  if (!isSupabaseConfigured()) return DEMO_EPISODES.filter((e) => e.title_id === titleId);
+  try {
+    return await fetchEpisodes(titleId);
+  } catch {
+    return [];
+  }
 }
 
 export async function getRating(titleId: string): Promise<Rating | null> {

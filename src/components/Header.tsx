@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { signOut } from "@/app/actions";
 import { getDict, getLocale } from "@/lib/i18n";
-import { getUser, isAdminEmail, isSupabaseConfigured } from "@/lib/supabase/server";
+import { getViewer, isAdminEmail, isSupabaseConfigured } from "@/lib/supabase/server";
 import { LangSwitch } from "./LangSwitch";
 import { NavLinks } from "./NavLinks";
 import { ThemeSwitch } from "./ThemeSwitch";
@@ -9,7 +9,7 @@ import { ThemeSwitch } from "./ThemeSwitch";
 export async function Header() {
   const locale = await getLocale();
   const t = getDict(locale);
-  const user = isSupabaseConfigured() ? await getUser() : null;
+  const user = isSupabaseConfigured() ? await getViewer() : null;
 
   const links = [
     { href: "/", label: t.home },

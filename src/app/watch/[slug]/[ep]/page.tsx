@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Player } from "@/components/Player";
 import { getProgress, getTitleBySlug, listEpisodes } from "@/lib/data";
 import { getDict, getLocale, pick } from "@/lib/i18n";
-import { getUser } from "@/lib/supabase/server";
+import { getViewer } from "@/lib/supabase/server";
 import { bunnyEmbedUrl } from "@/lib/video";
 
 type Params = Promise<{ slug: string; ep: string }>;
@@ -39,7 +39,7 @@ export default async function WatchPage({ params }: { params: Params }) {
 
   const locale = await getLocale();
   const t = getDict(locale);
-  const user = await getUser();
+  const user = await getViewer();
   const embedSrc = bunnyEmbedUrl(episode.hls_url);
   const startAt = user && !embedSrc ? await getProgress(user.id, episode.id) : 0;
 

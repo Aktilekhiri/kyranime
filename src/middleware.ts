@@ -13,6 +13,10 @@ export async function middleware(request: NextRequest) {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return response;
 
+  // У гостя нет cookie сессии, обновлять нечего: не тратим время на Supabase
+  const hasSession = request.cookies.getAll().some((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"));
+  if (!hasSession) return response;
+
   const supabase = createServerClient(url, key, {
     cookies: {
       getAll: () => request.cookies.getAll(),
@@ -23,7 +27,7 @@ export async function middleware(request: NextRequest) {
       },
     },
   });
-  await supabase.auth.getUser();
+  await supabase.auth.getClaims();
   return response;
 }
 

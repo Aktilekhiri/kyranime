@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDict, getLocale } from "@/lib/i18n";
@@ -163,6 +163,7 @@ export async function addTitle(formData: FormData) {
     status: formData.get("status") === "completed" ? "completed" : "ongoing",
     dubbed_by: String(formData.get("dubbed_by") ?? "").trim() || null,
   });
+  revalidateTag("catalog");
   revalidatePath("/");
   revalidatePath("/admin");
 }
@@ -178,6 +179,7 @@ export async function addEpisode(formData: FormData) {
     hls_url: String(formData.get("hls_url")).trim(),
     duration_sec: Number(formData.get("duration_min")) ? Number(formData.get("duration_min")) * 60 : null,
   });
+  revalidateTag("catalog");
   revalidatePath("/admin");
 }
 
@@ -214,6 +216,7 @@ export async function updateTitle(formData: FormData) {
     .select("slug")
     .maybeSingle();
 
+  revalidateTag("catalog");
   revalidatePath("/");
   revalidatePath("/catalog");
   revalidatePath("/admin");
@@ -255,6 +258,7 @@ export async function uploadPoster(formData: FormData): Promise<PosterState> {
     .maybeSingle();
   if (dbErr) return { error: `Файл загружен, но ссылка не сохранилась: ${dbErr.message}` };
 
+  revalidateTag("catalog");
   revalidatePath("/");
   revalidatePath("/catalog");
   revalidatePath("/admin");

@@ -4,7 +4,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { getDict, getLocale } from "@/lib/i18n";
-import { getUser, isSupabaseConfigured } from "@/lib/supabase/server";
+import { getViewer, isSupabaseConfigured } from "@/lib/supabase/server";
 import { getTheme } from "@/lib/theme";
 
 export const metadata: Metadata = {
@@ -18,7 +18,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const locale = await getLocale();
   const t = getDict(locale);
   const theme = await getTheme();
-  const user = isSupabaseConfigured() ? await getUser() : null;
+  const user = isSupabaseConfigured() ? await getViewer() : null;
 
   const bottomItems = [
     { href: "/", label: t.home, icon: "home" as const },

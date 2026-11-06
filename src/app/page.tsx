@@ -2,14 +2,14 @@ import Link from "next/link";
 import { AnimeCard } from "@/components/AnimeCard";
 import { listContinueWatching, listTitles } from "@/lib/data";
 import { getDict, getLocale, pick } from "@/lib/i18n";
-import { getUser } from "@/lib/supabase/server";
+import { getViewer } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const locale = await getLocale();
   const t = getDict(locale);
-  const [titles, user] = await Promise.all([listTitles(), getUser()]);
+  const [titles, user] = await Promise.all([listTitles(), getViewer()]);
   const resume = user ? await listContinueWatching(user.id) : [];
 
   return (

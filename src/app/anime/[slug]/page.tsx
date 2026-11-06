@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { deleteReview, submitReview, toggleFavorite } from "@/app/actions";
 import { getRating, getTitleBySlug, isFavorite, listEpisodes, listReviews } from "@/lib/data";
 import { formatReleaseDays, getDict, getLocale, pick } from "@/lib/i18n";
-import { getUser, isAdminEmail } from "@/lib/supabase/server";
+import { getViewer, isAdminEmail } from "@/lib/supabase/server";
 
 type Params = Promise<{ slug: string }>;
 
@@ -22,7 +22,7 @@ export default async function AnimePage({ params }: { params: Params }) {
 
   const locale = await getLocale();
   const t = getDict(locale);
-  const user = await getUser();
+  const user = await getViewer();
 
   const [episodes, rating, reviews, favorite] = await Promise.all([
     listEpisodes(title.id),
