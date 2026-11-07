@@ -1,3 +1,4 @@
+import { episodeHref } from "@/lib/dubs";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -56,7 +57,7 @@ export default async function ProfilePage() {
             {resume.map(({ title, episode }) => (
               <Link
                 key={episode.id}
-                href={`/watch/${title.slug}/${episode.season}-${episode.number}`}
+                href={episodeHref(title.slug, episode)}
                 className="card p-3 text-sm transition hover:border-neon"
               >
                 <span className="line-clamp-2 font-semibold">{pick(title, "title", locale)}</span>

@@ -33,6 +33,9 @@ export default async function EditEpisodePage({
   const episode = data as Episode;
   const { data: titleRow } = await supabase.from("titles").select("*").eq("id", episode.title_id).maybeSingle();
   const title = titleRow as Title | null;
+  const { data: dubRow } = episode.dub_id
+    ? await supabase.from("dubs").select("studio_name").eq("id", episode.dub_id).maybeSingle()
+    : { data: null };
 
   return (
     <div className="max-w-2xl space-y-8">
@@ -42,6 +45,7 @@ export default async function EditEpisodePage({
       <h1 className="text-2xl font-bold">
         Серия {episode.number}
         {episode.season > 1 && <span className="text-snow-dim"> · сезон {episode.season}</span>}
+        {dubRow && <span className="text-snow-dim"> · {dubRow.studio_name}</span>}
       </h1>
 
       {error && (

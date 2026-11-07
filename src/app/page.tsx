@@ -1,3 +1,4 @@
+import { episodeHref } from "@/lib/dubs";
 import Link from "next/link";
 import { AnimeCard } from "@/components/AnimeCard";
 import { listContinueWatching, listTitles } from "@/lib/data";
@@ -32,7 +33,7 @@ export default async function HomePage() {
             {resume.map(({ title, episode }) => (
               <Link
                 key={episode.id}
-                href={`/watch/${title.slug}/${episode.season}-${episode.number}`}
+                href={episodeHref(title.slug, episode)}
                 className="group block"
               >
                 <div className="flex aspect-video items-center justify-center rounded-xl border border-ink-200 bg-ink-100 text-sm text-snow-dim group-hover:border-neon">

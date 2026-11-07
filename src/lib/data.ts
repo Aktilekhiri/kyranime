@@ -2,7 +2,7 @@ import { DEMO_EPISODES, DEMO_TITLES } from "./demo";
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "./supabase/public";
 import { createClient, isSupabaseConfigured } from "./supabase/server";
-import type { Episode, Rating, Review, Title } from "./types";
+import type { Dub, Episode, Rating, Review, Title } from "./types";
 
 /** Убираем символы, которые ломают фильтр PostgREST. */
 function cleanQuery(q: string): string {
@@ -53,6 +53,33 @@ const fetchEpisodes = unstable_cache(
   ["episodes"],
   CATALOG,
 );
+
+const fetchDubs = unstable_cache(
+  async (titleId: string): Promise<Dub[]> => {
+    const supabase = createPublicClient()!;
+    const { data, error } = await supabase
+      .from("dubs")
+      .select("*")
+      .eq("title_id", titleId)
+      .eq("published", true)
+      .order("sort")
+      .order("created_at");
+    if (error) throw error;
+    return (data ?? []) as Dub[];
+  },
+  ["dubs"],
+  CATALOG,
+);
+
+/** Озвучки тайтла (только видимые). Пока SQL из supabase/dubs.sql не выполнен, вернёт []. */
+export async function listDubs(titleId: string): Promise<Dub[]> {
+  if (!isSupabaseConfigured()) return [];
+  try {
+    return await fetchDubs(titleId);
+  } catch {
+    return [];
+  }
+}
 
 export async function listTitles(query?: string): Promise<Title[]> {
   const q = query ? cleanQuery(query) : "";

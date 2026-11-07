@@ -27,6 +27,16 @@ export type Episode = {
   thumbnail_url: string | null;
   duration_sec: number | null;
   published: boolean;
+  dub_id: string | null;
+};
+
+export type Dub = {
+  id: string;
+  title_id: string;
+  studio_name: string;
+  studio_url: string | null;
+  sort: number;
+  published: boolean;
 };
 
 export type Review = {

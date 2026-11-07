@@ -149,7 +149,8 @@ export async function addTitle(formData: FormData) {
     .split(",")
     .map((g) => g.trim())
     .filter(Boolean);
-  const { error } = await supabase.from("titles").insert({
+  const dubbedBy = String(formData.get("dubbed_by") ?? "").trim();
+  const { data: created, error } = await supabase.from("titles").insert({
     slug: String(formData.get("slug")).trim().toLowerCase(),
     title_ky: String(formData.get("title_ky")).trim(),
     title_ru: String(formData.get("title_ru")).trim(),
@@ -161,9 +162,13 @@ export async function addTitle(formData: FormData) {
     genres,
     release_days: parseReleaseDays(formData),
     status: formData.get("status") === "completed" ? "completed" : "ongoing",
-    dubbed_by: String(formData.get("dubbed_by") ?? "").trim() || null,
-  });
+    dubbed_by: dubbedBy || null,
+  }).select("id").single();
   if (error) redirect("/admin?error=title");
+  // Если указана команда озвучки, сразу создаём для неё раздел (ошибку игнорируем: добавишь вручную)
+  if (dubbedBy && created) {
+    await supabase.from("dubs").insert({ title_id: created.id, studio_name: dubbedBy });
+  }
   revalidateTag("catalog");
   revalidatePath("/");
   revalidatePath("/admin");
@@ -180,13 +185,18 @@ function revalidateCatalogPages() {
 
 export async function addEpisode(formData: FormData) {
   const supabase = await requireAdmin();
-  const titleId = String(formData.get("title_id"));
+  const dubId = String(formData.get("dub_id") ?? "");
   const hlsUrl = String(formData.get("hls_url") ?? "").trim();
   const minutes = Number(formData.get("duration_min"));
 
   if (!hlsUrl.startsWith("https://")) redirect("/admin?error=url");
+  const { data: dub } = await supabase.from("dubs").select("title_id").eq("id", dubId).maybeSingle();
+  if (!dub) redirect("/admin?error=nodub");
+  const titleId = dub.title_id as string;
+
   const { error } = await supabase.from("episodes").insert({
     title_id: titleId,
+    dub_id: dubId,
     season: Number(formData.get("season")) || 1,
     number: Number(formData.get("number")),
     name_ky: String(formData.get("name_ky") ?? "").trim() || null,
@@ -235,6 +245,64 @@ export async function deleteEpisode(formData: FormData) {
 
   const { error } = await supabase.from("episodes").delete().eq("id", id);
   if (error) redirect(`/admin/episode/${id}?error=save`);
+
+  revalidateCatalogPages();
+  redirect(`/admin/title/${titleId}`);
+}
+
+function cleanStudioUrl(formData: FormData): string | null | undefined {
+  const raw = String(formData.get("studio_url") ?? "").trim();
+  if (!raw) return null;
+  return raw.startsWith("https://") ? raw : undefined; // undefined = неверная ссылка
+}
+
+export async function addDub(formData: FormData) {
+  const supabase = await requireAdmin();
+  const titleId = String(formData.get("title_id"));
+  const name = String(formData.get("studio_name") ?? "").trim();
+  const url = cleanStudioUrl(formData);
+  if (!name || url === undefined) redirect(`/admin/title/${titleId}?error=dub`);
+
+  const { error } = await supabase
+    .from("dubs")
+    .insert({ title_id: titleId, studio_name: name, studio_url: url, sort: Number(formData.get("sort")) || 0 });
+  if (error) redirect(`/admin/title/${titleId}?error=dubsave`);
+
+  revalidateCatalogPages();
+  redirect(`/admin/title/${titleId}`);
+}
+
+export async function updateDub(formData: FormData) {
+  const supabase = await requireAdmin();
+  const id = String(formData.get("id"));
+  const titleId = String(formData.get("title_id"));
+  const name = String(formData.get("studio_name") ?? "").trim();
+  const url = cleanStudioUrl(formData);
+  if (!name || url === undefined) redirect(`/admin/title/${titleId}?error=dub`);
+
+  const { error } = await supabase
+    .from("dubs")
+    .update({
+      studio_name: name,
+      studio_url: url,
+      sort: Number(formData.get("sort")) || 0,
+      published: formData.get("published") === "on",
+    })
+    .eq("id", id);
+  if (error) redirect(`/admin/title/${titleId}?error=dubsave`);
+
+  revalidateCatalogPages();
+  redirect(`/admin/title/${titleId}`);
+}
+
+export async function deleteDub(formData: FormData) {
+  const supabase = await requireAdmin();
+  const id = String(formData.get("id"));
+  const titleId = String(formData.get("title_id"));
+  if (formData.get("confirm") !== "yes") redirect(`/admin/title/${titleId}?error=dubconfirm`);
+
+  const { error } = await supabase.from("dubs").delete().eq("id", id);
+  if (error) redirect(`/admin/title/${titleId}?error=dubsave`);
 
   revalidateCatalogPages();
   redirect(`/admin/title/${titleId}`);

@@ -3,7 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteReview, submitReview, toggleFavorite } from "@/app/actions";
-import { getRating, getTitleBySlug, isFavorite, listEpisodes, listReviews } from "@/lib/data";
+import { getRating, getTitleBySlug, isFavorite, listDubs, listEpisodes, listReviews } from "@/lib/data";
+import { episodeHref, resolveDubs } from "@/lib/dubs";
 import { formatReleaseDays, getDict, getLocale, pick } from "@/lib/i18n";
 import { getViewer, isAdminEmail } from "@/lib/supabase/server";
 
@@ -15,8 +16,15 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   return { title: title ? `${title.title_ky} / ${title.title_ru}` : "KyrAnime" };
 }
 
-export default async function AnimePage({ params }: { params: Params }) {
+export default async function AnimePage({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: Promise<{ dub?: string }>;
+}) {
   const { slug } = await params;
+  const { dub: wantedDub } = await searchParams;
   const title = await getTitleBySlug(slug);
   if (!title) notFound();
 
@@ -24,13 +32,15 @@ export default async function AnimePage({ params }: { params: Params }) {
   const t = getDict(locale);
   const user = await getViewer();
 
-  const [episodes, rating, reviews, favorite] = await Promise.all([
+  const [allEpisodes, dubList, rating, reviews, favorite] = await Promise.all([
     listEpisodes(title.id),
+    listDubs(title.id),
     getRating(title.id),
     listReviews(title.id),
     user ? isFavorite(user.id, title.id) : Promise.resolve(false),
   ]);
 
+  const { dubs, current: currentDub, episodes } = resolveDubs(dubList, allEpisodes, wantedDub);
   const name = pick(title, "title", locale);
   const first = episodes[0];
   const isAdmin = isAdminEmail(user?.email);
@@ -79,7 +89,7 @@ export default async function AnimePage({ params }: { params: Params }) {
               <span className="font-semibold text-neon">{formatReleaseDays(title.release_days, locale)}</span>
             </p>
           )}
-          {title.dubbed_by && (
+          {!currentDub && title.dubbed_by && (
             <p className="text-sm">
               <span className="text-snow-dim">{t.dubbedBy}:</span> {title.dubbed_by}
             </p>
@@ -87,7 +97,7 @@ export default async function AnimePage({ params }: { params: Params }) {
 
           <div className="flex flex-wrap gap-3">
             {first && (
-              <Link href={`/watch/${title.slug}/${first.season}-${first.number}`} className="btn-primary">
+              <Link href={episodeHref(title.slug, first)} className="btn-primary">
                 ▶ {t.watch}
               </Link>
             )}
@@ -105,13 +115,44 @@ export default async function AnimePage({ params }: { params: Params }) {
 
       <section>
         <h2 className="mb-4 text-xl font-bold">{t.episodes}</h2>
+        {dubs.length > 0 && currentDub && (
+          <div className="mb-4 max-w-2xl space-y-2">
+            <p className="text-sm text-snow-dim">{t.dubbedBy}:</p>
+            <div className="flex flex-wrap gap-2" role="tablist" aria-label={t.dubbedBy}>
+              {dubs.map((d) => (
+                <Link
+                  key={d.id}
+                  href={`/anime/${title.slug}?dub=${d.id}`}
+                  scroll={false}
+                  role="tab"
+                  aria-selected={d.id === currentDub.id}
+                  className={`rounded-lg border px-4 py-2 text-sm font-semibold transition ${
+                    d.id === currentDub.id ? "border-neon bg-neon text-ink" : "border-ink-300 hover:border-snow"
+                  }`}
+                >
+                  {d.studio_name}
+                </Link>
+              ))}
+            </div>
+            {currentDub.studio_url && (
+              <a
+                href={currentDub.studio_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block text-sm text-neon underline underline-offset-2"
+              >
+                {currentDub.studio_name} ↗
+              </a>
+            )}
+          </div>
+        )}
         <ol className="max-w-2xl space-y-2">
           {episodes.map((ep) => {
             const epName = pick(ep, "name", locale);
             return (
               <li key={ep.id}>
                 <Link
-                  href={`/watch/${title.slug}/${ep.season}-${ep.number}`}
+                  href={episodeHref(title.slug, ep)}
                   className="card group flex items-center gap-4 px-4 py-3 transition hover:border-neon"
                 >
                   <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-ink-100 text-lg font-bold group-hover:bg-neon group-hover:text-ink">

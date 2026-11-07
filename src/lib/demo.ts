@@ -56,5 +56,6 @@ export const DEMO_EPISODES: Episode[] = DEMO_TITLES.flatMap((title) =>
     thumbnail_url: null,
     duration_sec: 1440,
     published: true,
+    dub_id: null,
   })),
 );

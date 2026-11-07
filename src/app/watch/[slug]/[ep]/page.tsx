@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Player } from "@/components/Player";
-import { getProgress, getTitleBySlug, listEpisodes } from "@/lib/data";
+import { getProgress, getTitleBySlug, listDubs, listEpisodes } from "@/lib/data";
+import { episodeHref, resolveDubs } from "@/lib/dubs";
 import { getDict, getLocale, pick } from "@/lib/i18n";
 import { getViewer } from "@/lib/supabase/server";
 import { bunnyEmbedUrl } from "@/lib/video";
@@ -22,20 +23,39 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   return { title: title && parsed ? `${title.title_ky} · ${parsed.number}` : "KyrAnime" };
 }
 
-export default async function WatchPage({ params }: { params: Params }) {
+export default async function WatchPage({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: Promise<{ dub?: string }>;
+}) {
   const { slug, ep } = await params;
+  const { dub: wantedDub } = await searchParams;
   const parsed = parseEp(ep);
   const title = await getTitleBySlug(slug);
   if (!title || !parsed) notFound();
 
-  const episodes = await listEpisodes(title.id);
-  const index = episodes.findIndex((e) => e.season === parsed.season && e.number === parsed.number);
-  if (index === -1) notFound();
+  const [allEpisodes, dubList] = await Promise.all([listEpisodes(title.id), listDubs(title.id)]);
+  const view = resolveDubs(dubList, allEpisodes, wantedDub);
+  const { episodes } = view;
+  const sameEp = (e: { season: number; number: number }) => e.season === parsed.season && e.number === parsed.number;
+  const index = episodes.findIndex(sameEp);
+  if (index === -1) {
+    // В выбранной озвучке этой серии нет: открываем её в другой озвучке, если там есть
+    const elsewhere = view.all.find(sameEp);
+    if (elsewhere) redirect(episodeHref(title.slug, elsewhere));
+    notFound();
+  }
 
   const episode = episodes[index];
   const prev = episodes[index - 1];
   const next = episodes[index + 1];
-  const href = (e: { season: number; number: number }) => `/watch/${title.slug}/${e.season}-${e.number}`;
+  const href = (e: { season: number; number: number; dub_id?: string | null }) => episodeHref(title.slug, e);
+  // Эта же серия в других озвучках (для переключателя)
+  const versions = view.dubs
+    .map((d) => ({ dub: d, episode: view.all.find((e) => e.dub_id === d.id && sameEp(e)) }))
+    .filter((v): v is { dub: (typeof view.dubs)[number]; episode: (typeof view.all)[number] } => Boolean(v.episode));
 
   const locale = await getLocale();
   const t = getDict(locale);
@@ -58,6 +78,27 @@ export default async function WatchPage({ params }: { params: Params }) {
           {pick(episode, "name", locale) && ` · ${pick(episode, "name", locale)}`}
         </p>
       </div>
+
+      {versions.length > 1 && (
+        <div className="space-y-2">
+          <p className="text-sm text-snow-dim">{t.dubbedBy}:</p>
+          <div className="flex flex-wrap gap-2">
+            {versions.map(({ dub, episode: e }) => (
+              <Link
+                key={dub.id}
+                href={href(e)}
+                replace
+                aria-current={dub.id === episode.dub_id ? "page" : undefined}
+                className={`rounded-lg border px-4 py-2 text-sm font-semibold transition ${
+                  dub.id === episode.dub_id ? "border-neon bg-neon text-ink" : "border-ink-300 hover:border-snow"
+                }`}
+              >
+                {dub.studio_name}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {embedSrc ? (
         // Ссылка от Bunny (player.mediadelivery.net): показываем его плеер целиком

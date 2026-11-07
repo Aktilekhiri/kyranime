@@ -5,7 +5,7 @@ import { addEpisode, addTitle } from "@/app/actions";
 import { AdminField } from "@/components/AdminField";
 import { ReleaseDaysField } from "@/components/ReleaseDaysField";
 import { listTitles } from "@/lib/data";
-import { getUser, isAdminEmail } from "@/lib/supabase/server";
+import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Админка" };
 export const dynamic = "force-dynamic";
@@ -14,6 +14,7 @@ const ERRORS: Record<string, string> = {
   title: "Тайтл не добавлен: такой slug уже есть или поле заполнено неверно.",
   episode: "Серия не добавлена: серия с таким сезоном и номером уже есть или поле заполнено неверно.",
   url: "Ссылка на видео должна начинаться с https://",
+  nodub: "Выбери озвучку. Если её нет, открой тайтл и добавь озвучку.",
 };
 
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
@@ -22,6 +23,16 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   if (!user || !isAdminEmail(user.email)) redirect("/");
 
   const titles = await listTitles();
+  const supabase = (await createClient())!;
+  const { data: dubRows } = await supabase
+    .from("dubs")
+    .select("id, studio_name, titles(title_ru, title_ky)")
+    .order("created_at");
+  const dubOptions = (dubRows ?? []).map((d) => {
+    const t = d.titles as unknown as { title_ru: string; title_ky: string } | { title_ru: string; title_ky: string }[] | null;
+    const title = Array.isArray(t) ? t[0] : t;
+    return { id: d.id as string, label: `${title?.title_ru ?? "?"} · ${d.studio_name}` };
+  });
 
   return (
     <div className="space-y-12">
@@ -105,18 +116,23 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <h2 className="text-xl font-bold">Новая серия</h2>
         <form action={addEpisode} className="card grid gap-4 p-5 sm:grid-cols-2">
           <div>
-            <label htmlFor="title_id" className="label">
-              Тайтл
+            <label htmlFor="dub_id" className="label">
+              Тайтл и озвучка
             </label>
-            <select id="title_id" name="title_id" required className="input">
-              {titles.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.title_ru} / {t.title_ky}
+            <select id="dub_id" name="dub_id" required className="input">
+              {dubOptions.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.label}
                 </option>
               ))}
             </select>
+            {dubOptions.length === 0 && (
+              <p className="mt-2 text-xs text-snow-dim">
+                Озвучек пока нет. Открой тайтл и добавь озвучку (и выполни SQL из supabase/dubs.sql).
+              </p>
+            )}
           </div>
-          <AdminField label="Ссылка на HLS (master.m3u8)" name="hls_url" type="url" required placeholder="https://.../master.m3u8" />
+          <AdminField label="Ссылка на видео (Bunny или .m3u8)" name="hls_url" type="url" required placeholder="https://.../master.m3u8" />
           <AdminField label="Сезон" name="season" type="number" placeholder="1" />
           <AdminField label="Номер серии" name="number" type="number" required />
           <AdminField label="Название серии (кыргызча)" name="name_ky" />

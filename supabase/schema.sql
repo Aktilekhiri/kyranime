@@ -154,3 +154,6 @@ create policy "posters admin delete" on storage.objects
 -- ───────── Миграция: дни выхода серий ─────────
 -- Если базу ты создал раньше, выполни только эту строку:
 alter table public.titles add column if not exists release_days smallint[] not null default '{}';
+
+-- ───────── Миграция: разделы озвучек ─────────
+-- После этой схемы выполни отдельный файл supabase/dubs.sql (таблица озвучек и привязка серий).
