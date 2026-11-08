@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { deleteChatMessage, fetchChat, sendChat } from "@/app/actions";
+import { deleteChatMessage, fetchChat, fetchOlderChat, sendChat } from "@/app/actions";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 import type { ChatMessage } from "@/lib/types";
 
@@ -14,6 +14,7 @@ type Labels = {
   delete: string;
   wait: string;
   error: string;
+  older: string;
 };
 
 type Props = {
@@ -26,7 +27,8 @@ type Props = {
   heightClass?: string;
 };
 
-const MAX_MESSAGES = 200;
+const MAX_MESSAGES = 2000;
+const PAGE = 50;
 
 function time(iso: string): string {
   return new Date(iso).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bishkek" });
@@ -36,6 +38,8 @@ function time(iso: string): string {
 export function ChatBox({ room, initial, viewerId, isAdmin, labels, heightClass = "h-80" }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>(initial);
   const [live, setLive] = useState(false);
+  const [hasMore, setHasMore] = useState(initial.length >= PAGE);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const [text, setText] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -75,16 +79,33 @@ export function ChatBox({ room, initial, viewerId, isAdmin, labels, heightClass 
   useEffect(() => {
     if (live) return;
     const timer = setInterval(() => {
-      void fetchChat(room).then((fresh) => setMessages(fresh));
+      void fetchChat(room).then((fresh) => merge(fresh));
     }, 15000);
     return () => clearInterval(timer);
   }, [live, room]);
 
-  // Прокрутка вниз при новых сообщениях
+  // Прокрутка вниз только когда пришло новое сообщение (а не когда подгрузили старые)
+  const newestId = messages[messages.length - 1]?.id;
   useEffect(() => {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages.length]);
+  }, [newestId]);
+
+  async function loadOlder() {
+    const oldest = messages[0];
+    if (!oldest || loadingOlder) return;
+    setLoadingOlder(true);
+    const el = listRef.current;
+    const heightBefore = el?.scrollHeight ?? 0;
+    const older = await fetchOlderChat(room, oldest.created_at);
+    setHasMore(older.length >= PAGE);
+    merge(older);
+    setLoadingOlder(false);
+    // Остаёмся на том же месте, а не прыгаем вверх
+    requestAnimationFrame(() => {
+      if (el) el.scrollTop = el.scrollHeight - heightBefore;
+    });
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -114,6 +135,16 @@ export function ChatBox({ room, initial, viewerId, isAdmin, labels, heightClass 
   return (
     <div className="card overflow-hidden">
       <div ref={listRef} className={`${heightClass} space-y-3 overflow-y-auto p-4`} aria-live="polite">
+        {hasMore && messages.length > 0 && (
+          <button
+            type="button"
+            onClick={loadOlder}
+            disabled={loadingOlder}
+            className="btn-ghost w-full text-sm disabled:opacity-50"
+          >
+            {labels.older}
+          </button>
+        )}
         {messages.length === 0 ? (
           <p className="text-sm text-snow-dim">{labels.empty}</p>
         ) : (

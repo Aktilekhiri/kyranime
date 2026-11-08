@@ -239,6 +239,21 @@ export async function fetchChat(room: string): Promise<ChatMessage[]> {
   return ((data ?? []) as ChatMessage[]).reverse();
 }
 
+/** Более старые сообщения комнаты (до указанного времени), от старых к новым. Чат не удаляется, историю можно листать. */
+export async function fetchOlderChat(room: string, before: string): Promise<ChatMessage[]> {
+  if (!CHAT_ROOM_RE.test(room) || Number.isNaN(Date.parse(before))) return [];
+  const supabase = await createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("chat_messages")
+    .select("id, room, user_id, username, body, created_at")
+    .eq("room", room)
+    .lt("created_at", before)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  return ((data ?? []) as ChatMessage[]).reverse();
+}
+
 /** Удалить сообщение чата: своё или любое (админ). Права проверяет база (RLS). */
 export async function deleteChatMessage(id: string): Promise<boolean> {
   const supabase = await createClient();

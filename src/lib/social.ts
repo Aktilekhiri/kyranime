@@ -27,6 +27,7 @@ export function chatLabels(t: Dict) {
     login: t.chatLogin,
     delete: t.delete,
     wait: t.chatWait,
+    older: t.chatOlder,
     error: t.chatError,
   };
 }
