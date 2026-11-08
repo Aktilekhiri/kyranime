@@ -139,7 +139,7 @@ export function Comments({ heading, comments, titleId, slug, episode, viewerId, 
   const fieldId = `comment-${episode ? "ep" : "title"}`;
 
   return (
-    <section className="max-w-2xl space-y-4">
+    <section className="space-y-4">
       <h2 className="text-xl font-bold">
         {heading} <span className="text-base font-normal text-snow-dim">({comments.length})</span>
       </h2>
