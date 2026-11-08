@@ -2,8 +2,17 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { deleteReview, submitReview, toggleFavorite } from "@/app/actions";
-import { getRating, getTitleBySlug, isFavorite, listDubs, listEpisodes, listReviews } from "@/lib/data";
+import { submitReview, toggleFavorite } from "@/app/actions";
+import { Comments } from "@/components/Comments";
+import {
+  getMyRating,
+  getRating,
+  getTitleBySlug,
+  isFavorite,
+  listComments,
+  listDubs,
+  listEpisodes,
+} from "@/lib/data";
 import { episodeHref, resolveDubs } from "@/lib/dubs";
 import { formatReleaseDays, getDict, getLocale, pick } from "@/lib/i18n";
 import { getViewer, isAdminEmail } from "@/lib/supabase/server";
@@ -32,19 +41,19 @@ export default async function AnimePage({
   const t = getDict(locale);
   const user = await getViewer();
 
-  const [allEpisodes, dubList, rating, reviews, favorite] = await Promise.all([
+  const [allEpisodes, dubList, rating, comments, favorite, myRating] = await Promise.all([
     listEpisodes(title.id),
     listDubs(title.id),
     getRating(title.id),
-    listReviews(title.id),
+    listComments(title.id),
     user ? isFavorite(user.id, title.id) : Promise.resolve(false),
+    user ? getMyRating(user.id, title.id) : Promise.resolve(null),
   ]);
 
   const { dubs, current: currentDub, episodes } = resolveDubs(dubList, allEpisodes, wantedDub);
   const name = pick(title, "title", locale);
   const first = episodes[0];
   const isAdmin = isAdminEmail(user?.email);
-  const mine = reviews.find((r) => r.user_id === user?.id);
 
   return (
     <div className="space-y-10">
@@ -182,18 +191,17 @@ export default async function AnimePage({
         </ol>
       </section>
 
-      <section className="max-w-2xl space-y-6">
-        <h2 className="text-xl font-bold">{t.reviews}</h2>
-
+      <section className="max-w-2xl space-y-3">
+        <h2 className="text-xl font-bold">{t.yourRating}</h2>
         {user ? (
-          <form action={submitReview} className="card space-y-3 p-4">
+          <form action={submitReview} className="card flex flex-wrap items-end gap-3 p-4">
             <input type="hidden" name="title_id" value={title.id} />
             <input type="hidden" name="slug" value={title.slug} />
             <div>
               <label htmlFor="rating" className="label">
                 {t.rating}
               </label>
-              <select id="rating" name="rating" defaultValue={mine?.rating ?? 10} className="input w-28">
+              <select id="rating" name="rating" defaultValue={myRating ?? 10} className="input w-28">
                 {Array.from({ length: 10 }, (_, i) => 10 - i).map((n) => (
                   <option key={n} value={n}>
                     {n} / 10
@@ -201,57 +209,28 @@ export default async function AnimePage({
                 ))}
               </select>
             </div>
-            <div>
-              <label htmlFor="body" className="label">
-                {t.writeReview}
-              </label>
-              <textarea
-                id="body"
-                name="body"
-                rows={3}
-                maxLength={2000}
-                defaultValue={mine?.body ?? ""}
-                placeholder={t.reviewPlaceholder}
-                className="input"
-              />
-            </div>
             <button type="submit" className="btn-primary">
-              {t.send}
+              {t.saveRating}
             </button>
           </form>
         ) : (
           <p className="card p-4 text-sm text-snow-dim">
             <Link href="/login" className="text-neon underline underline-offset-2">
-              {t.loginToReview}
+              {t.loginToRate}
             </Link>
           </p>
         )}
-
-        {reviews.length === 0 ? (
-          <p className="text-sm text-snow-dim">{t.noReviews}</p>
-        ) : (
-          <ul className="space-y-3">
-            {reviews.map((r) => (
-              <li key={r.id} className="card p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-semibold">{r.username}</span>
-                  <span className="text-sm font-bold text-neon">★ {r.rating}/10</span>
-                </div>
-                {r.body && <p className="mt-2 whitespace-pre-line text-sm text-snow/90">{r.body}</p>}
-                {isAdmin && (
-                  <form action={deleteReview} className="mt-2">
-                    <input type="hidden" name="id" value={r.id} />
-                    <input type="hidden" name="slug" value={title.slug} />
-                    <button className="text-xs text-snow-dim underline hover:text-snow" type="submit">
-                      ✕
-                    </button>
-                  </form>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
       </section>
+
+      <Comments
+        heading={t.reviews}
+        comments={comments}
+        titleId={title.id}
+        slug={title.slug}
+        viewerId={user?.id ?? null}
+        isAdmin={isAdmin}
+        t={t}
+      />
     </div>
   );
 }

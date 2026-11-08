@@ -50,3 +50,11 @@ export type Review = {
 };
 
 export type Rating = { avg_rating: number; reviews_count: number };
+
+export type Comment = {
+  id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+  username: string;
+};

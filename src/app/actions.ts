@@ -81,6 +81,7 @@ export async function signOut() {
   redirect("/");
 }
 
+/** Оценка 1–10: одна на человека для тайтла (её можно менять). Комментарии пишутся отдельно, без ограничений. */
 export async function submitReview(formData: FormData) {
   const supabase = await createClient();
   const user = await getUser();
@@ -89,13 +90,58 @@ export async function submitReview(formData: FormData) {
   const titleId = String(formData.get("title_id"));
   const slug = String(formData.get("slug"));
   const rating = Math.min(10, Math.max(1, Number(formData.get("rating")) || 0));
-  const body = String(formData.get("body") ?? "").trim().slice(0, 2000);
   if (!rating) return;
 
   await supabase
     .from("reviews")
-    .upsert({ title_id: titleId, user_id: user.id, rating, body: body || null }, { onConflict: "title_id,user_id" });
+    .upsert({ title_id: titleId, user_id: user.id, rating }, { onConflict: "title_id,user_id" });
   revalidatePath(`/anime/${slug}`);
+}
+
+/** Комментарий к тайтлу (без season/number) или к серии. Количество не ограничено. */
+export async function addComment(formData: FormData) {
+  const supabase = await createClient();
+  const user = await getUser();
+  if (!supabase || !user) redirect("/login");
+
+  const titleId = String(formData.get("title_id"));
+  const slug = String(formData.get("slug"));
+  const body = String(formData.get("body") ?? "").trim().slice(0, 2000);
+  if (!body) return;
+
+  const season = Number(formData.get("season"));
+  const number = Number(formData.get("number"));
+  const isEpisode = Number.isInteger(season) && Number.isInteger(number) && formData.get("number") !== null;
+
+  // Защита от случайного двойного нажатия: тот же текст в течение 10 секунд не дублируем
+  const { data: last } = await supabase
+    .from("comments")
+    .select("body, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (last && last.body === body && Date.now() - new Date(last.created_at).getTime() < 10_000) return;
+
+  await supabase.from("comments").insert({
+    user_id: user.id,
+    title_id: titleId,
+    season: isEpisode ? season : null,
+    number: isEpisode ? number : null,
+    body,
+  });
+  revalidatePath(`/anime/${slug}`);
+  revalidatePath("/watch/[slug]/[ep]", "page");
+}
+
+/** Удалить комментарий: свой или любой (админ). Права проверяет база (RLS). */
+export async function deleteComment(formData: FormData) {
+  const supabase = await createClient();
+  const user = await getUser();
+  if (!supabase || !user) redirect("/login");
+  await supabase.from("comments").delete().eq("id", String(formData.get("id")));
+  revalidatePath(`/anime/${String(formData.get("slug"))}`);
+  revalidatePath("/watch/[slug]/[ep]", "page");
 }
 
 export async function toggleFavorite(formData: FormData) {

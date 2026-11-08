@@ -2,7 +2,7 @@ import { DEMO_EPISODES, DEMO_TITLES } from "./demo";
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "./supabase/public";
 import { createClient, isSupabaseConfigured } from "./supabase/server";
-import type { Dub, Episode, Rating, Review, Title } from "./types";
+import type { Comment, Dub, Episode, Rating, Review, Title } from "./types";
 
 /** Убираем символы, которые ломают фильтр PostgREST. */
 function cleanQuery(q: string): string {
@@ -214,4 +214,40 @@ export async function getProgress(userId: string, episodeId: string): Promise<nu
     .eq("episode_id", episodeId)
     .maybeSingle();
   return data?.position_sec ?? 0;
+}
+
+/** Оценка текущего пользователя этому тайтлу (одна на тайтл). */
+export async function getMyRating(userId: string, titleId: string): Promise<number | null> {
+  const supabase = await createClient();
+  if (!supabase) return null;
+  const { data } = await supabase
+    .from("reviews")
+    .select("rating")
+    .eq("user_id", userId)
+    .eq("title_id", titleId)
+    .maybeSingle();
+  return data?.rating ?? null;
+}
+
+/**
+ * Комментарии без ограничения числа на человека.
+ * Без `episode` возвращает комментарии к тайтлу, с `episode` — к конкретной серии (общие для всех озвучек).
+ */
+export async function listComments(
+  titleId: string,
+  episode?: { season: number; number: number },
+): Promise<Comment[]> {
+  const supabase = await createClient();
+  if (!supabase) return [];
+  let req = supabase
+    .from("comments")
+    .select("id, user_id, body, created_at, profiles(username)")
+    .eq("title_id", titleId);
+  req = episode ? req.eq("season", episode.season).eq("number", episode.number) : req.is("season", null);
+  const { data } = await req.order("created_at", { ascending: false }).limit(100);
+  return (data ?? []).map((c) => {
+    const profile = c.profiles as unknown as { username: string } | { username: string }[] | null;
+    const username = Array.isArray(profile) ? profile[0]?.username : profile?.username;
+    return { id: c.id, user_id: c.user_id, body: c.body, created_at: c.created_at, username: username ?? "user" };
+  });
 }

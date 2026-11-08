@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { Comments } from "@/components/Comments";
 import { Player } from "@/components/Player";
-import { getProgress, getTitleBySlug, listDubs, listEpisodes } from "@/lib/data";
+import { getProgress, getTitleBySlug, listComments, listDubs, listEpisodes } from "@/lib/data";
 import { episodeHref, resolveDubs } from "@/lib/dubs";
 import { getDict, getLocale, pick } from "@/lib/i18n";
-import { getViewer } from "@/lib/supabase/server";
+import { getViewer, isAdminEmail } from "@/lib/supabase/server";
 import { bunnyEmbedUrl } from "@/lib/video";
 
 type Params = Promise<{ slug: string; ep: string }>;
@@ -61,7 +62,10 @@ export default async function WatchPage({
   const t = getDict(locale);
   const user = await getViewer();
   const embedSrc = bunnyEmbedUrl(episode.hls_url);
-  const startAt = user && !embedSrc ? await getProgress(user.id, episode.id) : 0;
+  const [startAt, comments] = await Promise.all([
+    user && !embedSrc ? getProgress(user.id, episode.id) : Promise.resolve(0),
+    listComments(title.id, { season: episode.season, number: episode.number }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -156,6 +160,17 @@ export default async function WatchPage({
           ))}
         </div>
       </section>
+
+      <Comments
+        heading={t.episodeComments}
+        comments={comments}
+        titleId={title.id}
+        slug={title.slug}
+        episode={{ season: episode.season, number: episode.number }}
+        viewerId={user?.id ?? null}
+        isAdmin={isAdminEmail(user?.email)}
+        t={t}
+      />
     </div>
   );
 }
