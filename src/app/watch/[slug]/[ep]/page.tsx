@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { ChatBox } from "@/components/ChatBox";
 import { Comments } from "@/components/Comments";
 import { Player } from "@/components/Player";
-import { getProgress, getTitleBySlug, listComments, listDubs, listEpisodes } from "@/lib/data";
+import { getProgress, getTitleBySlug, listChat, listComments, listDubs, listEpisodes } from "@/lib/data";
 import { episodeHref, resolveDubs } from "@/lib/dubs";
+import { chatLabels, safeAspect } from "@/lib/social";
 import { getDict, getLocale, pick } from "@/lib/i18n";
 import { getViewer, isAdminEmail } from "@/lib/supabase/server";
 import { bunnyEmbedUrl } from "@/lib/video";
@@ -62,9 +64,12 @@ export default async function WatchPage({
   const t = getDict(locale);
   const user = await getViewer();
   const embedSrc = bunnyEmbedUrl(episode.hls_url);
-  const [startAt, comments] = await Promise.all([
+  const aspect = safeAspect(episode.aspect);
+  const chatRoom = `ep:${title.id}:${episode.season}-${episode.number}`;
+  const [startAt, comments, chat] = await Promise.all([
     user && !embedSrc ? getProgress(user.id, episode.id) : Promise.resolve(0),
-    listComments(title.id, { season: episode.season, number: episode.number }),
+    listComments(title.id, { season: episode.season, number: episode.number }, user?.id),
+    listChat(chatRoom),
   ]);
 
   return (
@@ -106,7 +111,7 @@ export default async function WatchPage({
 
       {embedSrc ? (
         // Ссылка от Bunny (player.mediadelivery.net): показываем его плеер целиком
-        <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
+        <div className="relative w-full overflow-hidden rounded-xl bg-black" style={{ aspectRatio: aspect }}>
           <iframe
             key={episode.id}
             src={embedSrc}
@@ -125,6 +130,7 @@ export default async function WatchPage({
           startAt={startAt}
           nextHref={next ? href(next) : null}
           canSave={Boolean(user)}
+          aspect={aspect}
         />
       )}
 
@@ -159,6 +165,17 @@ export default async function WatchPage({
             </Link>
           ))}
         </div>
+      </section>
+
+      <section className="max-w-2xl space-y-3">
+        <h2 className="text-xl font-bold">{t.chatEpisode}</h2>
+        <ChatBox
+          room={chatRoom}
+          initial={chat}
+          viewerId={user?.id ?? null}
+          isAdmin={isAdminEmail(user?.email)}
+          labels={chatLabels(t)}
+        />
       </section>
 
       <Comments

@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
+import { CHAT_ROOM_RE, REACTIONS, safeAspect } from "@/lib/social";
+import type { ChatMessage } from "@/lib/types";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDict, getLocale } from "@/lib/i18n";
@@ -98,7 +100,10 @@ export async function submitReview(formData: FormData) {
   revalidatePath(`/anime/${slug}`);
 }
 
-/** Комментарий к тайтлу (без season/number) или к серии. Количество не ограничено. */
+/**
+ * Комментарий к тайтлу (без season/number) или к серии. Количество не ограничено.
+ * Если передан reply_to_id, это ответ: он привязывается к корневому комментарию.
+ */
 export async function addComment(formData: FormData) {
   const supabase = await createClient();
   const user = await getUser();
@@ -109,9 +114,29 @@ export async function addComment(formData: FormData) {
   const body = String(formData.get("body") ?? "").trim().slice(0, 2000);
   if (!body) return;
 
-  const season = Number(formData.get("season"));
-  const number = Number(formData.get("number"));
-  const isEpisode = Number.isInteger(season) && Number.isInteger(number) && formData.get("number") !== null;
+  let season: number | null = null;
+  let number: number | null = null;
+  const rawNumber = formData.get("number");
+  if (rawNumber !== null && Number.isInteger(Number(formData.get("season"))) && Number.isInteger(Number(rawNumber))) {
+    season = Number(formData.get("season"));
+    number = Number(rawNumber);
+  }
+
+  let parentId: string | null = null;
+  let replyToId: string | null = null;
+  const replyTo = String(formData.get("reply_to_id") ?? "");
+  if (replyTo) {
+    const { data: target } = await supabase
+      .from("comments")
+      .select("id, title_id, season, number, parent_id")
+      .eq("id", replyTo)
+      .maybeSingle();
+    if (!target || target.title_id !== titleId) return;
+    parentId = target.parent_id ?? target.id;
+    replyToId = target.id;
+    season = target.season;
+    number = target.number;
+  }
 
   // Защита от случайного двойного нажатия: тот же текст в течение 10 секунд не дублируем
   const { data: last } = await supabase
@@ -126,12 +151,101 @@ export async function addComment(formData: FormData) {
   await supabase.from("comments").insert({
     user_id: user.id,
     title_id: titleId,
-    season: isEpisode ? season : null,
-    number: isEpisode ? number : null,
+    season,
+    number,
     body,
+    ...(parentId ? { parent_id: parentId, reply_to_id: replyToId } : {}),
   });
   revalidatePath(`/anime/${slug}`);
   revalidatePath("/watch/[slug]/[ep]", "page");
+}
+
+/** Поставить или снять реакцию (как в Telegram: каждую реакцию человек ставит один раз). */
+export async function toggleReaction(formData: FormData) {
+  const supabase = await createClient();
+  const user = await getUser();
+  if (!supabase || !user) redirect("/login");
+
+  const commentId = String(formData.get("comment_id"));
+  const emoji = String(formData.get("emoji"));
+  if (!(REACTIONS as readonly string[]).includes(emoji)) return;
+
+  const { data: existing } = await supabase
+    .from("comment_reactions")
+    .select("emoji")
+    .eq("comment_id", commentId)
+    .eq("user_id", user.id)
+    .eq("emoji", emoji)
+    .maybeSingle();
+
+  if (existing) {
+    await supabase
+      .from("comment_reactions")
+      .delete()
+      .eq("comment_id", commentId)
+      .eq("user_id", user.id)
+      .eq("emoji", emoji);
+  } else {
+    await supabase.from("comment_reactions").insert({ comment_id: commentId, user_id: user.id, emoji });
+  }
+  revalidatePath(`/anime/${String(formData.get("slug"))}`);
+  revalidatePath("/watch/[slug]/[ep]", "page");
+}
+
+export type ChatSendResult =
+  | { ok: true; message: ChatMessage }
+  | { ok: false; error: "login" | "empty" | "wait" | "failed" };
+
+/** Отправить сообщение в чат (общий, тайтла или серии). Не чаще одного сообщения в 2 секунды. */
+export async function sendChat(room: string, text: string): Promise<ChatSendResult> {
+  const supabase = await createClient();
+  const user = await getUser();
+  if (!supabase || !user) return { ok: false, error: "login" };
+  if (!CHAT_ROOM_RE.test(room)) return { ok: false, error: "failed" };
+
+  const body = text.trim().slice(0, 500);
+  if (!body) return { ok: false, error: "empty" };
+
+  const { data: last } = await supabase
+    .from("chat_messages")
+    .select("created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (last && Date.now() - new Date(last.created_at).getTime() < 2000) return { ok: false, error: "wait" };
+
+  const { data: profile } = await supabase.from("profiles").select("username").eq("id", user.id).maybeSingle();
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .insert({ room, user_id: user.id, username: profile?.username ?? "user", body })
+    .select("id, room, user_id, username, body, created_at")
+    .single();
+  if (error || !data) return { ok: false, error: "failed" };
+  return { ok: true, message: data as ChatMessage };
+}
+
+/** Последние сообщения комнаты (запасной вариант, если realtime не подключился). */
+export async function fetchChat(room: string): Promise<ChatMessage[]> {
+  if (!CHAT_ROOM_RE.test(room)) return [];
+  const supabase = await createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("chat_messages")
+    .select("id, room, user_id, username, body, created_at")
+    .eq("room", room)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  return ((data ?? []) as ChatMessage[]).reverse();
+}
+
+/** Удалить сообщение чата: своё или любое (админ). Права проверяет база (RLS). */
+export async function deleteChatMessage(id: string): Promise<boolean> {
+  const supabase = await createClient();
+  const user = await getUser();
+  if (!supabase || !user) return false;
+  const { error } = await supabase.from("chat_messages").delete().eq("id", id);
+  return !error;
 }
 
 /** Удалить комментарий: свой или любой (админ). Права проверяет база (RLS). */
@@ -240,7 +354,7 @@ export async function addEpisode(formData: FormData) {
   if (!dub) redirect("/admin?error=nodub");
   const titleId = dub.title_id as string;
 
-  const { error } = await supabase.from("episodes").insert({
+  const row = {
     title_id: titleId,
     dub_id: dubId,
     season: Number(formData.get("season")) || 1,
@@ -249,7 +363,10 @@ export async function addEpisode(formData: FormData) {
     name_ru: String(formData.get("name_ru") ?? "").trim() || null,
     hls_url: hlsUrl,
     duration_sec: minutes > 0 ? Math.round(minutes * 60) : null,
-  });
+  };
+  let { error } = await supabase.from("episodes").insert({ ...row, aspect: safeAspect(String(formData.get("aspect"))) });
+  // Если колонки aspect ещё нет (SQL не выполнен), добавляем без неё
+  if (error) ({ error } = await supabase.from("episodes").insert(row));
   if (error) redirect("/admin?error=episode");
 
   revalidateCatalogPages();
@@ -263,20 +380,20 @@ export async function updateEpisode(formData: FormData) {
   const minutes = Number(formData.get("duration_min"));
 
   if (!hlsUrl.startsWith("https://")) redirect(`/admin/episode/${id}?error=url`);
-  const { data, error } = await supabase
-    .from("episodes")
-    .update({
-      season: Number(formData.get("season")) || 1,
-      number: Number(formData.get("number")),
-      name_ky: String(formData.get("name_ky") ?? "").trim() || null,
-      name_ru: String(formData.get("name_ru") ?? "").trim() || null,
-      hls_url: hlsUrl,
-      duration_sec: minutes > 0 ? Math.round(minutes * 60) : null,
-      published: formData.get("published") === "on",
-    })
-    .eq("id", id)
-    .select("title_id")
-    .maybeSingle();
+  const fields = {
+    season: Number(formData.get("season")) || 1,
+    number: Number(formData.get("number")),
+    name_ky: String(formData.get("name_ky") ?? "").trim() || null,
+    name_ru: String(formData.get("name_ru") ?? "").trim() || null,
+    hls_url: hlsUrl,
+    duration_sec: minutes > 0 ? Math.round(minutes * 60) : null,
+    published: formData.get("published") === "on",
+  };
+  const save = (values: Record<string, unknown>) =>
+    supabase.from("episodes").update(values).eq("id", id).select("title_id").maybeSingle();
+  let { data, error } = await save({ ...fields, aspect: safeAspect(String(formData.get("aspect"))) });
+  // Если колонки aspect ещё нет (SQL не выполнен), сохраняем без неё
+  if (error) ({ data, error } = await save(fields));
   if (error || !data) redirect(`/admin/episode/${id}?error=save`);
 
   revalidateCatalogPages();

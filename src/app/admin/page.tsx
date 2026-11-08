@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { addEpisode, addTitle } from "@/app/actions";
 import { AdminField } from "@/components/AdminField";
+import { AspectField } from "@/components/AspectField";
 import { ReleaseDaysField } from "@/components/ReleaseDaysField";
 import { listTitles } from "@/lib/data";
 import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
@@ -138,6 +139,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <AdminField label="Название серии (кыргызча)" name="name_ky" />
           <AdminField label="Название серии (русский)" name="name_ru" />
           <AdminField label="Длительность, минут" name="duration_min" type="number" placeholder="24" />
+          <AspectField />
           <div className="flex items-end">
             <button type="submit" className="btn-primary">
               Добавить серию

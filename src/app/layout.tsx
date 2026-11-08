@@ -24,6 +24,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     { href: "/", label: t.home, icon: "home" as const },
     { href: "/catalog", label: t.catalog, icon: "grid" as const },
     { href: "/search", label: t.search, icon: "search" as const },
+    { href: "/chat", label: t.chat, icon: "chat" as const },
     // Не вошёл: кнопка ведёт ко входу
     { href: user ? "/profile" : "/login", label: user ? t.profile : t.login, icon: "user" as const },
   ];

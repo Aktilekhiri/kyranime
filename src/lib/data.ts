@@ -2,7 +2,7 @@ import { DEMO_EPISODES, DEMO_TITLES } from "./demo";
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "./supabase/public";
 import { createClient, isSupabaseConfigured } from "./supabase/server";
-import type { Comment, Dub, Episode, Rating, Review, Title } from "./types";
+import type { ChatMessage, Comment, Dub, Episode, Rating, Review, Title } from "./types";
 
 /** Убираем символы, которые ломают фильтр PostgREST. */
 function cleanQuery(q: string): string {
@@ -229,25 +229,72 @@ export async function getMyRating(userId: string, titleId: string): Promise<numb
   return data?.rating ?? null;
 }
 
+type RawComment = {
+  id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+  parent_id?: string | null;
+  reply_to_id?: string | null;
+  profiles: { username: string } | { username: string }[] | null;
+  comment_reactions?: { user_id: string; emoji: string }[] | null;
+};
+
 /**
- * Комментарии без ограничения числа на человека.
- * Без `episode` возвращает комментарии к тайтлу, с `episode` — к конкретной серии (общие для всех озвучек).
+ * Комментарии без ограничения числа на человека, с ответами и реакциями.
+ * Без `episode` возвращает комментарии к тайтлу, с `episode` — к серии (общие для всех озвучек).
+ * Если SQL из supabase/social.sql ещё не выполнен, работает по-старому (без ответов и реакций).
  */
 export async function listComments(
   titleId: string,
   episode?: { season: number; number: number },
+  viewerId?: string | null,
 ): Promise<Comment[]> {
   const supabase = await createClient();
   if (!supabase) return [];
-  let req = supabase
-    .from("comments")
-    .select("id, user_id, body, created_at, profiles(username)")
-    .eq("title_id", titleId);
-  req = episode ? req.eq("season", episode.season).eq("number", episode.number) : req.is("season", null);
-  const { data } = await req.order("created_at", { ascending: false }).limit(100);
-  return (data ?? []).map((c) => {
-    const profile = c.profiles as unknown as { username: string } | { username: string }[] | null;
-    const username = Array.isArray(profile) ? profile[0]?.username : profile?.username;
-    return { id: c.id, user_id: c.user_id, body: c.body, created_at: c.created_at, username: username ?? "user" };
+
+  const query = async (columns: string) => {
+    let req = supabase.from("comments").select(columns).eq("title_id", titleId);
+    req = episode ? req.eq("season", episode.season).eq("number", episode.number) : req.is("season", null);
+    return req.order("created_at", { ascending: false }).limit(200);
+  };
+
+  let res = await query("id, user_id, body, created_at, parent_id, reply_to_id, profiles(username), comment_reactions(user_id, emoji)");
+  if (res.error) res = await query("id, user_id, body, created_at, profiles(username)");
+  const rows = (res.data ?? []) as unknown as RawComment[];
+
+  return rows.map((c) => {
+    const profile = Array.isArray(c.profiles) ? c.profiles[0] : c.profiles;
+    const counts = new Map<string, { count: number; mine: boolean }>();
+    for (const r of c.comment_reactions ?? []) {
+      const entry = counts.get(r.emoji) ?? { count: 0, mine: false };
+      entry.count += 1;
+      if (viewerId && r.user_id === viewerId) entry.mine = true;
+      counts.set(r.emoji, entry);
+    }
+    return {
+      id: c.id,
+      user_id: c.user_id,
+      body: c.body,
+      created_at: c.created_at,
+      username: profile?.username ?? "user",
+      parent_id: c.parent_id ?? null,
+      reply_to_id: c.reply_to_id ?? null,
+      reactions: [...counts.entries()].map(([emoji, v]) => ({ emoji, ...v })),
+    };
   });
+}
+
+/** Последние сообщения комнаты чата, от старых к новым. */
+export async function listChat(room: string, limit = 50): Promise<ChatMessage[]> {
+  const supabase = await createClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select("id, room, user_id, username, body, created_at")
+    .eq("room", room)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) return [];
+  return ((data ?? []) as ChatMessage[]).reverse();
 }

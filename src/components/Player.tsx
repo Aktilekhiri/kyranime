@@ -10,9 +10,10 @@ type Props = {
   startAt: number;
   nextHref: string | null;
   canSave: boolean;
+  aspect?: string;
 };
 
-export function Player({ src, episodeId, startAt, nextHref, canSave }: Props) {
+export function Player({ src, episodeId, startAt, nextHref, canSave, aspect = "16/9" }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
 
   // Подключаем HLS (Safari играет m3u8 сам, остальным нужен hls.js)
@@ -69,7 +70,8 @@ export function Player({ src, episodeId, startAt, nextHref, canSave }: Props) {
       controls
       playsInline
       preload="metadata"
-      className="aspect-video w-full rounded-xl bg-black"
+      className="w-full rounded-xl bg-black"
+      style={{ aspectRatio: aspect }}
       onEnded={() => {
         if (nextHref) window.location.href = nextHref;
       }}

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { deleteEpisode, updateEpisode } from "@/app/actions";
 import { AdminField } from "@/components/AdminField";
+import { AspectField } from "@/components/AspectField";
 import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
 import type { Episode, Title } from "@/lib/types";
 
@@ -69,6 +70,7 @@ export default async function EditEpisodePage({
           type="number"
           defaultValue={episode.duration_sec ? Math.round(episode.duration_sec / 60) : null}
         />
+        <AspectField defaultValue={episode.aspect} />
         <div className="flex items-end">
           <label className="flex cursor-pointer items-center gap-3 py-2.5 text-sm">
             <input type="checkbox" name="published" defaultChecked={episode.published} className="size-5 accent-neon" />

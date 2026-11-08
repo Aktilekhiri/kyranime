@@ -14,6 +14,7 @@ export async function Header() {
   const links = [
     { href: "/", label: t.home },
     { href: "/catalog", label: t.catalog },
+    { href: "/chat", label: t.chat },
     ...(user ? [{ href: "/profile", label: t.profile }] : []),
     ...(user && isAdminEmail(user.email) ? [{ href: "/admin", label: t.admin }] : []),
   ];

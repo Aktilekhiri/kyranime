@@ -3,17 +3,20 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { submitReview, toggleFavorite } from "@/app/actions";
+import { ChatBox } from "@/components/ChatBox";
 import { Comments } from "@/components/Comments";
 import {
   getMyRating,
   getRating,
   getTitleBySlug,
   isFavorite,
+  listChat,
   listComments,
   listDubs,
   listEpisodes,
 } from "@/lib/data";
 import { episodeHref, resolveDubs } from "@/lib/dubs";
+import { chatLabels } from "@/lib/social";
 import { formatReleaseDays, getDict, getLocale, pick } from "@/lib/i18n";
 import { getViewer, isAdminEmail } from "@/lib/supabase/server";
 
@@ -41,13 +44,15 @@ export default async function AnimePage({
   const t = getDict(locale);
   const user = await getViewer();
 
-  const [allEpisodes, dubList, rating, comments, favorite, myRating] = await Promise.all([
+  const chatRoom = `title:${title.id}`;
+  const [allEpisodes, dubList, rating, comments, favorite, myRating, chat] = await Promise.all([
     listEpisodes(title.id),
     listDubs(title.id),
     getRating(title.id),
-    listComments(title.id),
+    listComments(title.id, undefined, user?.id),
     user ? isFavorite(user.id, title.id) : Promise.resolve(false),
     user ? getMyRating(user.id, title.id) : Promise.resolve(null),
+    listChat(chatRoom),
   ]);
 
   const { dubs, current: currentDub, episodes } = resolveDubs(dubList, allEpisodes, wantedDub);
@@ -220,6 +225,17 @@ export default async function AnimePage({
             </Link>
           </p>
         )}
+      </section>
+
+      <section className="max-w-2xl space-y-3">
+        <h2 className="text-xl font-bold">{t.chatTitle}</h2>
+        <ChatBox
+          room={chatRoom}
+          initial={chat}
+          viewerId={user?.id ?? null}
+          isAdmin={isAdmin}
+          labels={chatLabels(t)}
+        />
       </section>
 
       <Comments

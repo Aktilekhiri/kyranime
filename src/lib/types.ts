@@ -28,6 +28,8 @@ export type Episode = {
   duration_sec: number | null;
   published: boolean;
   dub_id: string | null;
+  /** Формат кадра: "16/9", "2/1", "21/9", "4/3" */
+  aspect?: string | null;
 };
 
 export type Dub = {
@@ -51,10 +53,26 @@ export type Review = {
 
 export type Rating = { avg_rating: number; reviews_count: number };
 
+export type Reaction = { emoji: string; count: number; mine: boolean };
+
 export type Comment = {
   id: string;
   user_id: string;
   body: string;
   created_at: string;
   username: string;
+  /** Корневой комментарий, если это ответ */
+  parent_id: string | null;
+  /** Комментарий, на который отвечают (может быть ответом) */
+  reply_to_id: string | null;
+  reactions: Reaction[];
+};
+
+export type ChatMessage = {
+  id: string;
+  room: string;
+  user_id: string;
+  username: string;
+  body: string;
+  created_at: string;
 };
