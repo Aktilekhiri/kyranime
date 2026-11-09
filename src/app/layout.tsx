@@ -5,11 +5,14 @@ import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { getDict, getLocale } from "@/lib/i18n";
 import { getViewer, isSupabaseConfigured } from "@/lib/supabase/server";
+import { SITE_URL } from "@/lib/site";
 import { getTheme } from "@/lib/theme";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: { default: "KyrAnime — Аниме кыргыз тилинде", template: "%s · KyrAnime" },
   description: "Аниме кыргыз тилинде: кол менен жасалган дубляж. Аниме на кыргызском языке.",
+  openGraph: { siteName: "KyrAnime", type: "website", images: ["/icon.png"] },
 };
 
 export const viewport: Viewport = { themeColor: "#0a0a0a" };
