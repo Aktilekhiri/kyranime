@@ -32,9 +32,14 @@ export async function generateMetadata({
   const { slug, ep } = await params;
   const title = await getTitleBySlug(slug);
   const parsed = parseEp(ep);
+  if (!title || !parsed) return { title: "KyrAnime" };
+  const description = `${title.title_ru} ${parsed.number} серия кыргызча: смотреть онлайн бесплатно. ${title.title_ky}, ${parsed.number}-серия кыргыз тилинде.`;
   return {
-    title:
-      title && parsed ? `${title.title_ky} · ${parsed.number}` : "KyrAnime",
+    title: `${title.title_ru} ${parsed.number} серия кыргызча`,
+    description,
+    keywords: [`${title.title_ru} ${parsed.number} серия кыргызча`, `${title.title_ru} кыргызча`, `${title.title_ky} кыргыз тилинде`, "аниме кыргызча"],
+    alternates: { canonical: `/watch/${title.slug}/${ep}` },
+    openGraph: { title: `${title.title_ru} ${parsed.number} серия кыргызча`, description, images: title.poster_url ? [title.poster_url] : undefined },
   };
 }
 

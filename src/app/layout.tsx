@@ -11,7 +11,8 @@ import { getTheme } from "@/lib/theme";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: { default: "KyrAnime — Аниме кыргыз тилинде", template: "%s · KyrAnime" },
-  description: "Аниме кыргыз тилинде: кол менен жасалган дубляж. Аниме на кыргызском языке.",
+  description: "Аниме кыргызча: бекер көрүңүз. Аниме на кыргызском языке, кыргызча дубляж и озвучка, смотреть онлайн бесплатно.",
+  keywords: ["аниме кыргызча", "аниме кыргыз тилинде", "аниме на кыргызском", "кыргызча дубляж", "аниме смотреть онлайн", "KyrAnime"],
   openGraph: { siteName: "KyrAnime", type: "website", images: ["/icon.png"] },
 };
 

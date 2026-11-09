@@ -15,6 +15,7 @@ import {
 } from "@/lib/data";
 import { episodeHref, resolveDubs } from "@/lib/dubs";
 import { formatReleaseDays, getDict, getLocale, pick } from "@/lib/i18n";
+import { SITE_URL } from "@/lib/site";
 import { getViewer, isAdminEmail } from "@/lib/supabase/server";
 
 type Params = Promise<{ slug: string }>;
@@ -26,8 +27,26 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const title = await getTitleBySlug(slug);
+  if (!title) return { title: "KyrAnime" };
+  const names = [title.title_ru, title.title_ky, title.title_orig].filter(Boolean) as string[];
+  const text = title.description_ru || title.description_ky || "";
+  const description = `${title.title_ru} кыргызча: смотреть онлайн бесплатно. ${title.title_ky} кыргыз тилинде, кыргызча дубляж. ${text}`.slice(0, 300);
   return {
-    title: title ? `${title.title_ky} / ${title.title_ru}` : "KyrAnime",
+    title: `${title.title_ru} кыргызча — ${title.title_ky}`,
+    description,
+    keywords: [
+      ...names.flatMap((n) => [`${n} кыргызча`, `${n} кыргыз тилинде`, `${n} смотреть онлайн`]),
+      "аниме кыргызча",
+      "аниме кыргыз тилинде",
+      "кыргызча дубляж",
+    ],
+    alternates: { canonical: `/anime/${title.slug}` },
+    openGraph: {
+      title: `${title.title_ru} кыргызча`,
+      description,
+      type: "video.tv_show",
+      images: title.poster_url ? [title.poster_url] : undefined,
+    },
   };
 }
 
@@ -66,8 +85,25 @@ export default async function AnimePage({
   const first = episodes[0];
   const isAdmin = isAdminEmail(user?.email);
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "TVSeries",
+    name: title.title_ru,
+    alternateName: [title.title_ky, title.title_orig].filter(Boolean),
+    description: title.description_ru || title.description_ky || undefined,
+    image: title.poster_url || undefined,
+    inLanguage: "ky",
+    genre: title.genres,
+    datePublished: title.year ? String(title.year) : undefined,
+    url: `${SITE_URL}/anime/${title.slug}`,
+    ...(rating && rating.reviews_count > 0
+      ? { aggregateRating: { "@type": "AggregateRating", ratingValue: rating.avg_rating, ratingCount: rating.reviews_count, bestRating: 5, worstRating: 1 } }
+      : {}),
+  };
+
   return (
     <div className="space-y-10">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
       <section className="grid gap-6 sm:grid-cols-[220px_1fr]">
         <div className="relative mx-auto aspect-[2/3] w-44 overflow-hidden rounded-xl border border-ink-200 bg-ink-100 sm:w-full">
           {title.poster_url ? (
