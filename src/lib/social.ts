@@ -31,3 +31,20 @@ export function chatLabels(t: Dict) {
     error: t.chatError,
   };
 }
+
+/** Ближайший к размерам видео формат кадра из списка ASPECTS */
+export function nearestAspect(width: number, height: number): string {
+  if (!width || !height) return "16/9";
+  const ratio = width / height;
+  let best: string = "16/9";
+  let bestDiff = Infinity;
+  for (const a of ASPECTS) {
+    const [w, h] = a.value.split("/").map(Number);
+    const diff = Math.abs(w / h - ratio);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = a.value;
+    }
+  }
+  return best;
+}

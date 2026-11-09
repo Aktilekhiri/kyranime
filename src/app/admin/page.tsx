@@ -5,6 +5,7 @@ import { addEpisode, addTitle } from "@/app/actions";
 import { AdminField } from "@/components/AdminField";
 import { AspectField } from "@/components/AspectField";
 import { ReleaseDaysField } from "@/components/ReleaseDaysField";
+import { VideoUploader } from "@/components/VideoUploader";
 import { listTitles } from "@/lib/data";
 import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
 
@@ -132,6 +133,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 Озвучек пока нет. Открой тайтл и добавь озвучку (и выполни SQL из supabase/dubs.sql).
               </p>
             )}
+          </div>
+          <div className="sm:col-span-2">
+            <VideoUploader />
           </div>
           <AdminField label="Ссылка на видео (Bunny или .m3u8)" name="hls_url" type="url" required placeholder="https://.../master.m3u8" />
           <AdminField label="Сезон" name="season" type="number" placeholder="1" />

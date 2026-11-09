@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { CHAT_ROOM_RE, REACTIONS, safeAspect } from "@/lib/social";
 import type { ChatMessage } from "@/lib/types";
@@ -567,4 +568,45 @@ export async function uploadPoster(formData: FormData): Promise<PosterState> {
   revalidatePath("/admin");
   if (title?.slug) revalidatePath(`/anime/${title.slug}`);
   return { ok: true, url: pub.publicUrl };
+}
+
+export type BunnyUploadAuth =
+  | { ok: true; videoId: string; libraryId: string; expirationTime: number; signature: string; playUrl: string }
+  | { ok: false; error: "forbidden" | "config" | "failed" };
+
+/**
+ * Готовит загрузку видео в Bunny прямо из браузера админа.
+ * Секретный ключ библиотеки (BUNNY_API_KEY) остаётся на сервере: браузер получает только подпись на одно видео.
+ */
+export async function createBunnyUpload(fileName: string): Promise<BunnyUploadAuth> {
+  const user = await getUser();
+  if (!user || !isAdminEmail(user.email)) return { ok: false, error: "forbidden" };
+
+  const apiKey = process.env.BUNNY_API_KEY?.trim();
+  const libraryId = process.env.BUNNY_LIBRARY_ID?.trim();
+  if (!apiKey || !libraryId || !/^\d+$/.test(libraryId)) return { ok: false, error: "config" };
+
+  const res = await fetch(`https://video.bunnycdn.com/library/${libraryId}/videos`, {
+    method: "POST",
+    headers: { AccessKey: apiKey, "Content-Type": "application/json", accept: "application/json" },
+    body: JSON.stringify({ title: fileName.trim().slice(0, 200) || "video" }),
+    cache: "no-store",
+  });
+  if (!res.ok) return { ok: false, error: "failed" };
+  const video = (await res.json()) as { guid?: string };
+  if (!video.guid || !/^[0-9a-f-]{36}$/i.test(video.guid)) return { ok: false, error: "failed" };
+
+  const expirationTime = Math.floor(Date.now() / 1000) + 6 * 3600; // 6 часов на загрузку
+  const signature = createHash("sha256")
+    .update(`${libraryId}${apiKey}${expirationTime}${video.guid}`)
+    .digest("hex");
+
+  return {
+    ok: true,
+    videoId: video.guid,
+    libraryId,
+    expirationTime,
+    signature,
+    playUrl: `https://player.mediadelivery.net/play/${libraryId}/${video.guid}`,
+  };
 }

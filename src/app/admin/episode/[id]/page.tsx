@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { deleteEpisode, updateEpisode } from "@/app/actions";
 import { AdminField } from "@/components/AdminField";
 import { AspectField } from "@/components/AspectField";
+import { VideoUploader } from "@/components/VideoUploader";
 import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
 import type { Episode, Title } from "@/lib/types";
 
@@ -61,6 +62,9 @@ export default async function EditEpisodePage({
         <AdminField label="Номер серии" name="number" type="number" required defaultValue={episode.number} />
         <AdminField label="Название серии (кыргызча)" name="name_ky" defaultValue={episode.name_ky} />
         <AdminField label="Название серии (русский)" name="name_ru" defaultValue={episode.name_ru} />
+        <div className="sm:col-span-2">
+          <VideoUploader />
+        </div>
         <div className="sm:col-span-2">
           <AdminField label="Ссылка на видео" name="hls_url" type="url" required defaultValue={episode.hls_url} />
         </div>
