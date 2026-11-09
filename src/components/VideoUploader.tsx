@@ -109,7 +109,7 @@ export function VideoUploader() {
       <p className="text-sm font-semibold">Загрузить видео с телефона</p>
       <input
         type="file"
-        accept="video/*"
+        accept="video/*,.mkv,.mp4,.mov,.webm,.avi,application/octet-stream"
         disabled={state === "uploading"}
         onChange={(e) => void pick(e.target.files?.[0] ?? null)}
         className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-neon file:px-4 file:py-2 file:font-semibold file:text-ink"
