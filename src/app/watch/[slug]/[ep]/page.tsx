@@ -32,7 +32,7 @@ export async function generateMetadata({
   const { slug, ep } = await params;
   const title = await getTitleBySlug(slug);
   const parsed = parseEp(ep);
-  if (!title || !parsed) return { title: "KyrAnime" };
+  if (!title || !parsed) return { title: "Кыргызча аниме" };
   const description = `${title.title_ru} ${parsed.number} серия кыргызча: смотреть онлайн бесплатно. ${title.title_ky}, ${parsed.number}-серия кыргыз тилинде.`;
   return {
     title: `${title.title_ru} ${parsed.number} серия кыргызча`,

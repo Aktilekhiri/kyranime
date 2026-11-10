@@ -27,7 +27,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const title = await getTitleBySlug(slug);
-  if (!title) return { title: "KyrAnime" };
+  if (!title) return { title: "Кыргызча аниме" };
   const names = [title.title_ru, title.title_ky, title.title_orig].filter(Boolean) as string[];
   const text = title.description_ru || title.description_ky || "";
   const description = `${title.title_ru} кыргызча: смотреть онлайн бесплатно. ${title.title_ky} кыргыз тилинде, кыргызча дубляж. ${text}`.slice(0, 300);

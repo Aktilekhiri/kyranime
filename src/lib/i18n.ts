@@ -7,7 +7,7 @@ export const DEFAULT_LOCALE: Locale = "ky";
 
 const dict = {
   ky: {
-    brand: "KyrAnime",
+    brand: "Кыргызча аниме",
     tagline: "Аниме кыргыз тилинде",
     heroTitle: "Сүйүктүү анимелер - кыргыз тилинде",
     heroText: "Кыргызча дубляж. Бекер көрүңүз",
@@ -85,7 +85,7 @@ const dict = {
     chatError: "Жөнөтүлгөн жок. Кайра аракет кылыңыз",
   },
   ru: {
-    brand: "KyrAnime",
+    brand: "Кыргызча аниме",
     tagline: "Аниме на кыргызском",
     heroTitle: "Любимое аниме на кыргызском языке",
     heroText: "Кыргызская озвучка. Смотрите бесплатно",

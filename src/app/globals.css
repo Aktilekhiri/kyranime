@@ -79,3 +79,39 @@
     @apply rounded-xl border border-ink-200 bg-ink-50;
   }
 }
+
+
+/* Шапка с флагом Кыргызстана: внутри всегда тёмные цвета, чтобы текст читался в любой теме */
+.header-flag {
+  --ink: 10 10 10;
+  --ink-50: 20 20 20;
+  --ink-100: 28 28 28;
+  --ink-200: 38 38 38;
+  --ink-300: 54 54 54;
+  --snow: 245 245 245;
+  --snow-dim: 190 190 190;
+  --neon: 34 255 136;
+  --neon-dark: 18 212 107;
+  position: relative;
+  overflow: hidden;
+  color: rgb(var(--snow));
+  background: linear-gradient(90deg, #1a0609, #2b0a10);
+}
+/* Флаг справа, плавно уходит в тёмный фон слева: текст всегда на тёмном */
+.header-flag::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: max(60%, 300px);
+  background: url("/flag-kg.svg") center / cover no-repeat;
+  opacity: 0.85;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 55%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 55%);
+  pointer-events: none;
+}
+.header-flag > * {
+  position: relative;
+}
+.header-flag .brand {
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+}

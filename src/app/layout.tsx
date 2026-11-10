@@ -12,10 +12,10 @@ import { getTheme } from "@/lib/theme";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: "KyrAnime — Аниме кыргыз тилинде", template: "%s · KyrAnime" },
+  title: { default: "Кыргызча аниме — Аниме кыргыз тилинде", template: "%s · Кыргызча аниме" },
   description: "Аниме кыргызча: бекер көрүңүз. Аниме на кыргызском языке, кыргызча дубляж и озвучка, смотреть онлайн бесплатно.",
   keywords: ["аниме кыргызча", "аниме кыргыз тилинде", "аниме на кыргызском", "кыргызча дубляж", "аниме смотреть онлайн", "KyrAnime"],
-  openGraph: { siteName: "KyrAnime", type: "website", images: ["/icon.png"] },
+  openGraph: { siteName: "Кыргызча аниме", type: "website", images: ["/icon.png"] },
 };
 
 export const viewport: Viewport = { themeColor: "#0a0a0a" };

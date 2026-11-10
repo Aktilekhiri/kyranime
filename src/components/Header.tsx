@@ -20,10 +20,10 @@ export async function Header() {
   ];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-ink-200 bg-ink/90 backdrop-blur">
+    <header className="header-flag sticky top-0 z-40 border-b border-ink-200">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
-        <Link href="/" className="text-xl font-extrabold tracking-tight">
-          Kyr<span className="text-neon">Anime</span>
+        <Link href="/" className="brand text-xl font-extrabold tracking-tight">
+          Кыргызча <span className="text-neon">аниме</span>
         </Link>
 
         <NavLinks items={links} />
