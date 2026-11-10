@@ -97,7 +97,7 @@ export default async function AnimePage({
     datePublished: title.year ? String(title.year) : undefined,
     url: `${SITE_URL}/anime/${title.slug}`,
     ...(rating && rating.reviews_count > 0
-      ? { aggregateRating: { "@type": "AggregateRating", ratingValue: rating.avg_rating, ratingCount: rating.reviews_count, bestRating: 5, worstRating: 1 } }
+      ? { aggregateRating: { "@type": "AggregateRating", ratingValue: Number(rating.avg_rating), ratingCount: Number(rating.reviews_count), bestRating: 10, worstRating: 1 } }
       : {}),
   };
 
