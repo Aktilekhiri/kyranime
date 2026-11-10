@@ -259,10 +259,10 @@ export async function listComments(
     return req.order("created_at", { ascending: false }).limit(200);
   };
 
-  let res = await query("id, user_id, body, created_at, parent_id, reply_to_id, profiles(username), comment_reactions(user_id, emoji)");
+  let res = await query("id, user_id, body, created_at, parent_id, reply_to_id, profiles!comments_user_id_fkey(username), comment_reactions(user_id, emoji)");
   if (res.error) {
     console.error("[listComments] full select failed:", res.error);
-    res = await query("id, user_id, body, created_at, profiles(username)");
+    res = await query("id, user_id, body, created_at, profiles!comments_user_id_fkey(username)");
     if (res.error) console.error("[listComments] fallback select failed:", res.error);
   }
   const rows = (res.data ?? []) as unknown as RawComment[];

@@ -16,11 +16,11 @@ export async function GET() {
   });
 
   const plain = await supabase.from("comments").select("id, title_id, season, number, body").limit(50);
-  const withProfile = await supabase.from("comments").select("id, profiles(username)").limit(50);
+  const withProfile = await supabase.from("comments").select("id, profiles!comments_user_id_fkey(username)").limit(50);
   const withReactions = await supabase.from("comments").select("id, comment_reactions(user_id, emoji)").limit(50);
   const full = await supabase
     .from("comments")
-    .select("id, user_id, body, created_at, parent_id, reply_to_id, profiles(username), comment_reactions(user_id, emoji)")
+    .select("id, user_id, body, created_at, parent_id, reply_to_id, profiles!comments_user_id_fkey(username), comment_reactions(user_id, emoji)")
     .limit(50);
   const reviews = await supabase.from("reviews").select("id").limit(50);
 
