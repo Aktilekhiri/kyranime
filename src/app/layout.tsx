@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { BottomNav } from "@/components/BottomNav";
+import { FlashError } from "@/components/FlashError";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { cookies } from "next/headers";
 import { getDict, getLocale } from "@/lib/i18n";
 import { getViewer, isSupabaseConfigured } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/site";
@@ -22,6 +24,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const locale = await getLocale();
   const t = getDict(locale);
   const theme = await getTheme();
+  let flash = "";
+  try {
+    flash = decodeURIComponent((await cookies()).get("flash")?.value ?? "");
+  } catch {}
   const user = isSupabaseConfigured() ? await getViewer() : null;
 
   const bottomItems = [
@@ -36,6 +42,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale === "ky" ? "ky" : "ru"} data-theme={theme}>
       <body className="flex min-h-screen flex-col">
+        <FlashError message={flash} />
         <Header />
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6">{children}</main>
         {/* pb-20: чтобы нижняя панель телефона не закрывала подвал */}

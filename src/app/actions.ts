@@ -10,6 +10,18 @@ import { getDict, getLocale } from "@/lib/i18n";
 import { THEMES, type Theme } from "@/lib/theme";
 import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
 
+/** Показывает пользователю короткое сообщение об ошибке (баннер вверху страницы). */
+async function flashError(label: string, error: { message?: string; code?: string } | null | undefined) {
+  if (!error) return;
+  console.error(`[${label}]`, error);
+  const store = await cookies();
+  store.set("flash", encodeURIComponent(`${label}: ${error.message ?? "ошибка"}${error.code ? ` (${error.code})` : ""}`.slice(0, 220)), {
+    path: "/",
+    maxAge: 60,
+    sameSite: "lax",
+  });
+}
+
 export async function setLocale(locale: string, returnTo: string) {
   const store = await cookies();
   store.set("locale", locale === "ru" ? "ru" : "ky", {
@@ -95,9 +107,10 @@ export async function submitReview(formData: FormData) {
   const rating = Math.min(10, Math.max(1, Number(formData.get("rating")) || 0));
   if (!rating) return;
 
-  await supabase
+  const { error } = await supabase
     .from("reviews")
     .upsert({ title_id: titleId, user_id: user.id, rating }, { onConflict: "title_id,user_id" });
+  await flashError("Оценка не сохранена", error);
   revalidatePath(`/anime/${slug}`);
 }
 
@@ -149,7 +162,7 @@ export async function addComment(formData: FormData) {
     .maybeSingle();
   if (last && last.body === body && Date.now() - new Date(last.created_at).getTime() < 10_000) return;
 
-  await supabase.from("comments").insert({
+  const { error } = await supabase.from("comments").insert({
     user_id: user.id,
     title_id: titleId,
     season,
@@ -157,6 +170,7 @@ export async function addComment(formData: FormData) {
     body,
     ...(parentId ? { parent_id: parentId, reply_to_id: replyToId } : {}),
   });
+  await flashError("Комментарий не отправлен", error);
   revalidatePath(`/anime/${slug}`);
   revalidatePath("/watch/[slug]/[ep]", "page");
 }
@@ -187,7 +201,8 @@ export async function toggleReaction(formData: FormData) {
       .eq("user_id", user.id)
       .eq("emoji", emoji);
   } else {
-    await supabase.from("comment_reactions").insert({ comment_id: commentId, user_id: user.id, emoji });
+    const { error } = await supabase.from("comment_reactions").insert({ comment_id: commentId, user_id: user.id, emoji });
+    await flashError("Реакция не сохранена", error);
   }
   revalidatePath(`/anime/${String(formData.get("slug"))}`);
   revalidatePath("/watch/[slug]/[ep]", "page");
