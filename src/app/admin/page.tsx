@@ -6,7 +6,7 @@ import { AdminField } from "@/components/AdminField";
 import { AspectField } from "@/components/AspectField";
 import { ReleaseDaysField } from "@/components/ReleaseDaysField";
 import { VideoUploader } from "@/components/VideoUploader";
-import { listTitles } from "@/lib/data";
+import { listTitlesForAdmin } from "@/lib/data";
 import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Админка" };
@@ -24,7 +24,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const user = await getUser();
   if (!user || !isAdminEmail(user.email)) redirect("/");
 
-  const titles = await listTitles();
+  const titles = await listTitlesForAdmin();
   const supabase = (await createClient())!;
   const { data: dubRows } = await supabase
     .from("dubs")
@@ -60,6 +60,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 >
                   <span className="font-semibold">
                     {t.title_ru} <span className="font-normal text-snow-dim">/ {t.title_ky}</span>
+                    {t.hidden && <span className="ml-2 rounded bg-neon px-1.5 py-0.5 text-xs font-bold text-ink">Скрыт</span>}
                   </span>
                   <span className="shrink-0 text-xs text-snow-dim">
                     {t.poster_url ? "Постер есть" : "Нет постера"} · Изменить →

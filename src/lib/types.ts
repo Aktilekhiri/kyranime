@@ -13,6 +13,7 @@ export type Title = {
   release_days: number[];
   status: "ongoing" | "completed";
   dubbed_by: string | null;
+  hidden?: boolean;
   created_at: string;
 };
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { addDub, deleteDub, updateDub, updateTitle } from "@/app/actions";
+import { addDub, deleteDub, setTitleHidden, updateDub, updateTitle } from "@/app/actions";
 import { AdminField } from "@/components/AdminField";
 import { PosterUploader } from "@/components/PosterUploader";
 import { ReleaseDaysField } from "@/components/ReleaseDaysField";
@@ -64,6 +64,17 @@ export default async function EditTitlePage({
           {ERRORS[error] ?? "Не удалось сохранить."}
         </p>
       )}
+
+      <form action={setTitleHidden} className="card flex flex-wrap items-center justify-between gap-3 p-4">
+        <input type="hidden" name="id" value={title.id} />
+        <input type="hidden" name="hidden" value={title.hidden ? "0" : "1"} />
+        <p className="text-sm">
+          {title.hidden ? "Тайтл скрыт: на сайте его видишь только ты." : "Тайтл виден всем на сайте."}
+        </p>
+        <button type="submit" className={title.hidden ? "btn-primary" : "btn-ghost"}>
+          {title.hidden ? "Показать на сайте" : "Скрыть с сайта"}
+        </button>
+      </form>
 
       <div className="grid gap-8 md:grid-cols-[220px_1fr]">
         <section aria-label="Постер">

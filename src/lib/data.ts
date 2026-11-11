@@ -309,3 +309,11 @@ export async function listChat(room: string, limit = 50): Promise<ChatMessage[]>
   if (error) return [];
   return ((data ?? []) as ChatMessage[]).reverse();
 }
+
+/** Все тайтлы для админки, включая скрытые (видны только админу по правилам базы). */
+export async function listTitlesForAdmin(): Promise<Title[]> {
+  const supabase = await createClient();
+  if (!supabase) return [];
+  const { data } = await supabase.from("titles").select("*").order("created_at", { ascending: false });
+  return (data ?? []) as Title[];
+}

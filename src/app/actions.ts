@@ -637,3 +637,16 @@ export async function createBunnyUpload(fileName: string): Promise<BunnyUploadAu
     playUrl: `https://player.mediadelivery.net/play/${libraryId}/${video.guid}`,
   };
 }
+
+/** Скрыть тайтл с сайта или вернуть. Скрытый тайтл видит только админ. */
+export async function setTitleHidden(formData: FormData) {
+  const supabase = await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const hidden = formData.get("hidden") === "1";
+  const { error } = await supabase.from("titles").update({ hidden }).eq("id", id);
+  if (error) {
+    await flashError("Не удалось скрыть. Выполни SQL из файла supabase/hidden.sql", error);
+    return;
+  }
+  revalidateCatalogPages();
+}
