@@ -11,6 +11,11 @@ import { THEMES, type Theme } from "@/lib/theme";
 import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
 
 /** Показывает пользователю короткое сообщение об ошибке (баннер вверху страницы). */
+/** Адрес тайтла: только латиница, цифры и дефисы («The Fragrant Flower» → the-fragrant-flower) */
+function slugify(raw: string): string {
+  return raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+}
+
 async function flashError(label: string, error: { message?: string; code?: string } | null | undefined) {
   if (!error) return;
   console.error(`[${label}]`, error);
@@ -342,7 +347,7 @@ export async function addTitle(formData: FormData) {
     .filter(Boolean);
   const dubbedBy = String(formData.get("dubbed_by") ?? "").trim();
   const { data: created, error } = await supabase.from("titles").insert({
-    slug: String(formData.get("slug")).trim().toLowerCase(),
+    slug: slugify(String(formData.get("slug"))) || `title-${Date.now().toString(36)}`,
     title_ky: String(formData.get("title_ky")).trim(),
     title_ru: String(formData.get("title_ru")).trim(),
     title_orig: String(formData.get("title_orig") ?? "").trim() || null,

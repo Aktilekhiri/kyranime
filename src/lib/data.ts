@@ -105,7 +105,12 @@ export async function listTitles(query?: string): Promise<Title[]> {
 export async function getTitleBySlug(slug: string): Promise<Title | null> {
   if (!isSupabaseConfigured()) return DEMO_TITLES.find((t) => t.slug === slug) ?? null;
   try {
-    return await fetchTitleBySlug(slug);
+    // В адресе пробелы приходят как %20: раскодируем, чтобы найти тайтл со старым адресом с пробелами
+    let clean = slug;
+    try {
+      clean = decodeURIComponent(slug);
+    } catch {}
+    return await fetchTitleBySlug(clean);
   } catch {
     return null;
   }

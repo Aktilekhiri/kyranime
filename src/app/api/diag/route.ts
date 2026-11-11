@@ -22,7 +22,7 @@ export async function GET() {
     .from("comments")
     .select("id, user_id, body, created_at, parent_id, reply_to_id, profiles!comments_user_id_fkey(username), comment_reactions(user_id, emoji)")
     .limit(50);
-  const titles = await supabase.from("titles").select("slug, title_ru, created_at").order("created_at", { ascending: false }).limit(30);
+  const titles = await supabase.from("titles").select("slug, title_ru, poster_url, created_at").order("created_at", { ascending: false }).limit(30);
   const reviews = await supabase.from("reviews").select("id").limit(50);
 
   return NextResponse.json({
@@ -32,6 +32,6 @@ export async function GET() {
     withReactions: brief(withReactions),
     full: brief(full),
     reviews: brief(reviews),
-    titles: titles.error ? titles.error.message : (titles.data ?? []).map((t) => `${t.slug} | ${t.title_ru}`),
+    titles: titles.error ? titles.error.message : (titles.data ?? []).map((t) => `${t.slug} | ${t.title_ru} | ${t.poster_url ?? "нет постера"}`),
   });
 }

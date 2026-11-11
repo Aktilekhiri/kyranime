@@ -12,7 +12,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
   try {
     const titles = await listTitles();
-    return [...pages, ...titles.map((t) => ({ url: `${SITE_URL}/anime/${t.slug}`, changeFrequency: "weekly" as const, priority: 0.7 }))];
+    return [...pages, ...titles.map((t) => ({ url: `${SITE_URL}/anime/${encodeURIComponent(t.slug)}`, changeFrequency: "weekly" as const, priority: 0.7 }))];
   } catch {
     return pages;
   }
