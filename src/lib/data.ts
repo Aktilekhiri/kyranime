@@ -31,7 +31,9 @@ const fetchTitleBySlug = unstable_cache(
     const supabase = createPublicClient()!;
     const { data, error } = await supabase.from("titles").select("*").eq("slug", slug).maybeSingle();
     if (error) throw error;
-    return (data as Title | null) ?? null;
+    // «Не найдено» не кэшируем: бросаем ошибку, её ловит getTitleBySlug. Иначе страница нового тайтла могла бы остаться 404.
+    if (!data) throw new Error("title not found");
+    return data as Title;
   },
   ["title-by-slug"],
   CATALOG,
