@@ -42,6 +42,11 @@ export function PosterUploader({ titleId, currentUrl }: { titleId: string; curre
         fd.set("title_id", titleId);
         fd.set("poster", blob, "poster.jpg");
         const res = await uploadPoster(fd);
+        if (res.ok && res.url) {
+          // Поле «ссылка на постер» в форме ниже должно получить новый адрес, иначе кнопка «Сохранить» вернёт старую ссылку
+          const field = document.querySelector<HTMLInputElement>('input[name="poster_url"]');
+          if (field) field.value = res.url;
+        }
         setMessage(res.ok ? { ok: true, text: "Постер сохранён" } : { ok: false, text: res.error ?? "Ошибка" });
       } catch {
         setMessage({ ok: false, text: "Не удалось обработать картинку" });

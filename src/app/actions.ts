@@ -16,6 +16,13 @@ function slugify(raw: string): string {
   return raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 }
 
+/** Ссылки на сообщения Telegram (t.me/...) не картинки: такой постер не покажется */
+function cleanPosterUrl(raw: FormDataEntryValue | null): string | null {
+  const url = String(raw ?? "").trim();
+  if (!url || /^https?:\/\/(www\.)?t\.me\//i.test(url) || !/^https?:\/\//i.test(url)) return null;
+  return url;
+}
+
 async function flashError(label: string, error: { message?: string; code?: string } | null | undefined) {
   if (!error) return;
   console.error(`[${label}]`, error);
@@ -353,7 +360,7 @@ export async function addTitle(formData: FormData) {
     title_orig: String(formData.get("title_orig") ?? "").trim() || null,
     description_ky: String(formData.get("description_ky") ?? "").trim() || null,
     description_ru: String(formData.get("description_ru") ?? "").trim() || null,
-    poster_url: String(formData.get("poster_url") ?? "").trim() || null,
+    poster_url: cleanPosterUrl(formData.get("poster_url")),
     year: Number(formData.get("year")) || null,
     genres,
     release_days: parseReleaseDays(formData),
@@ -529,7 +536,7 @@ export async function updateTitle(formData: FormData) {
       title_orig: String(formData.get("title_orig") ?? "").trim() || null,
       description_ky: String(formData.get("description_ky") ?? "").trim() || null,
       description_ru: String(formData.get("description_ru") ?? "").trim() || null,
-      poster_url: String(formData.get("poster_url") ?? "").trim() || null,
+      poster_url: cleanPosterUrl(formData.get("poster_url")),
       year: Number(formData.get("year")) || null,
       genres,
       release_days: parseReleaseDays(formData),
