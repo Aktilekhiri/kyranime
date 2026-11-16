@@ -61,6 +61,7 @@ export type Comment = {
   user_id: string;
   body: string;
   created_at: string;
+  edited_at?: string | null;
   username: string;
   /** Корневой комментарий, если это ответ */
   parent_id: string | null;

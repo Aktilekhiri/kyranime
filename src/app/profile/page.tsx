@@ -2,7 +2,7 @@ import { episodeHref } from "@/lib/dubs";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { signOut } from "@/app/actions";
+import { signOut, updateUsername } from "@/app/actions";
 import { AnimeCard } from "@/components/AnimeCard";
 import { listContinueWatching, listFavorites } from "@/lib/data";
 import { getDict, getLocale, pick } from "@/lib/i18n";
@@ -47,6 +47,29 @@ export default async function ProfilePage() {
           </form>
         </div>
       </header>
+
+      <section>
+        <form action={updateUsername} className="card flex flex-wrap items-end gap-3 p-4">
+          <div className="min-w-0 flex-1">
+            <label htmlFor="username" className="label">
+              {t.nickname}
+            </label>
+            <input
+              id="username"
+              name="username"
+              defaultValue={profile?.username ?? ""}
+              required
+              minLength={3}
+              maxLength={24}
+              autoComplete="nickname"
+              className="input"
+            />
+          </div>
+          <button type="submit" className="btn-primary">
+            {t.changeNick}
+          </button>
+        </form>
+      </section>
 
       <section>
         <h2 className="mb-4 text-xl font-bold">{t.continueWatching}</h2>

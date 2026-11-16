@@ -187,6 +187,39 @@ export async function addComment(formData: FormData) {
   revalidatePath("/watch/[slug]/[ep]", "page");
 }
 
+/** Изменить свой комментарий (чужие менять нельзя: это проверяет база). */
+export async function updateComment(formData: FormData) {
+  const supabase = await createClient();
+  const user = await getUser();
+  if (!supabase || !user) redirect("/login");
+  const body = String(formData.get("body") ?? "").trim().slice(0, 2000);
+  if (!body) return;
+  const { error } = await supabase
+    .from("comments")
+    .update({ body })
+    .eq("id", String(formData.get("id")))
+    .eq("user_id", user.id);
+  await flashError("Комментарий не изменён (выполни SQL из supabase/edit.sql)", error);
+  revalidatePath(`/anime/${String(formData.get("slug"))}`);
+  revalidatePath("/watch/[slug]/[ep]", "page");
+}
+
+/** Сменить ник: 3–24 символа, буквы, цифры, _ . - ; ник должен быть свободным. */
+export async function updateUsername(formData: FormData) {
+  const supabase = await createClient();
+  const user = await getUser();
+  if (!supabase || !user) redirect("/login");
+  const name = String(formData.get("username") ?? "").trim();
+  if (!/^[\p{L}\p{N}_.-]{3,24}$/u.test(name)) {
+    await flashError("Ник: 3–24 символа, только буквы, цифры, _ . -", { message: "неверный формат" });
+    return;
+  }
+  const { error } = await supabase.from("profiles").update({ username: name }).eq("id", user.id);
+  if (error?.code === "23505") await flashError("Этот ник уже занят", { message: name });
+  else await flashError("Ник не изменён", error);
+  revalidatePath("/", "layout");
+}
+
 /** Поставить или снять реакцию (как в Telegram: каждую реакцию человек ставит один раз). */
 export async function toggleReaction(formData: FormData) {
   const supabase = await createClient();

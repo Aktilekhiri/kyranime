@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { addComment, deleteComment, toggleReaction } from "@/app/actions";
+import { addComment, deleteComment, toggleReaction, updateComment } from "@/app/actions";
 import type { Dict } from "@/lib/i18n";
 import { REACTIONS } from "@/lib/social";
 import type { Comment } from "@/lib/types";
@@ -34,7 +34,10 @@ export function Comments({ heading, comments, titleId, slug, episode, viewerId, 
       <li key={c.id} className={isReply ? "border-l-2 border-ink-300 pl-3" : "card p-4"}>
         <div className="flex items-center justify-between gap-3">
           <span className="font-semibold">{c.username}</span>
-          <span className="text-xs text-snow-dim">{formatDate(c.created_at)}</span>
+          <span className="text-xs text-snow-dim">
+            {formatDate(c.created_at)}
+            {c.edited_at ? ` · ${t.edited}` : ""}
+          </span>
         </div>
         {target && (
           <p className="mt-1 line-clamp-1 border-l-2 border-neon pl-2 text-xs text-snow-dim">
@@ -114,6 +117,30 @@ export function Comments({ heading, comments, titleId, slug, episode, viewerId, 
                 />
                 <button type="submit" className="btn-primary">
                   {t.send}
+                </button>
+              </form>
+            </details>
+          )}
+          {c.user_id === viewerId && (
+            <details className="w-full">
+              <summary className={`${SUMMARY} text-xs text-snow-dim underline hover:text-snow`}>{t.edit}</summary>
+              <form action={updateComment} className="mt-2 space-y-2">
+                <input type="hidden" name="id" value={c.id} />
+                <input type="hidden" name="slug" value={slug} />
+                <label htmlFor={`edit-${c.id}`} className="sr-only">
+                  {t.edit}
+                </label>
+                <textarea
+                  id={`edit-${c.id}`}
+                  name="body"
+                  rows={3}
+                  required
+                  maxLength={2000}
+                  defaultValue={c.body}
+                  className="input"
+                />
+                <button type="submit" className="btn-primary">
+                  {t.save}
                 </button>
               </form>
             </details>

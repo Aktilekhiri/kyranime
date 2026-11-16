@@ -241,6 +241,7 @@ type RawComment = {
   user_id: string;
   body: string;
   created_at: string;
+  edited_at?: string | null;
   parent_id?: string | null;
   reply_to_id?: string | null;
   profiles: { username: string } | { username: string }[] | null;
@@ -266,10 +267,16 @@ export async function listComments(
     return req.order("created_at", { ascending: false }).limit(200);
   };
 
-  let res = await query("id, user_id, body, created_at, parent_id, reply_to_id, profiles!comments_user_id_fkey(username), comment_reactions(user_id, emoji)");
+  const FK = "profiles!comments_user_id_fkey(username)";
+  const REL = "parent_id, reply_to_id";
+  // Если edit.sql ещё не выполнен (нет edited_at), падаем на прежний набор колонок
+  let res = await query(`id, user_id, body, created_at, edited_at, ${REL}, ${FK}, comment_reactions(user_id, emoji)`);
+  if (res.error) {
+    res = await query(`id, user_id, body, created_at, ${REL}, ${FK}, comment_reactions(user_id, emoji)`);
+  }
   if (res.error) {
     console.error("[listComments] full select failed:", res.error);
-    res = await query("id, user_id, body, created_at, profiles!comments_user_id_fkey(username)");
+    res = await query(`id, user_id, body, created_at, ${FK}`);
     if (res.error) console.error("[listComments] fallback select failed:", res.error);
   }
   const rows = (res.data ?? []) as unknown as RawComment[];
@@ -288,6 +295,7 @@ export async function listComments(
       user_id: c.user_id,
       body: c.body,
       created_at: c.created_at,
+      edited_at: c.edited_at ?? null,
       username: profile?.username ?? "user",
       parent_id: c.parent_id ?? null,
       reply_to_id: c.reply_to_id ?? null,
