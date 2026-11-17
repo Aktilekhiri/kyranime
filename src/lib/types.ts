@@ -63,6 +63,7 @@ export type Comment = {
   created_at: string;
   edited_at?: string | null;
   username: string;
+  avatar_url?: string | null;
   /** Корневой комментарий, если это ответ */
   parent_id: string | null;
   /** Комментарий, на который отвечают (может быть ответом) */

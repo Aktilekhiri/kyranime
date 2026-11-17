@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { deleteChatMessage, fetchChat, fetchOlderChat, sendChat } from "@/app/actions";
+import { Avatar } from "@/components/Avatar";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 import type { ChatMessage } from "@/lib/types";
 
@@ -44,6 +45,8 @@ export function ChatBox({ room, initial, viewerId, isAdmin, labels, heightClass 
   const [note, setNote] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const listRef = useRef<HTMLDivElement>(null);
+  // Актуальные ник и аватарка авторов (в самом сообщении ник сохранён на момент отправки)
+  const [people, setPeople] = useState<Record<string, { username: string; avatar_url: string | null }>>({});
 
   const merge = (incoming: ChatMessage[]) =>
     setMessages((prev) => {
@@ -83,6 +86,23 @@ export function ChatBox({ room, initial, viewerId, isAdmin, labels, heightClass 
     }, 15000);
     return () => clearInterval(timer);
   }, [live, room]);
+
+  const unknownIds = [...new Set(messages.map((m) => m.user_id))].filter((id) => !(id in people)).sort().join(",");
+  useEffect(() => {
+    if (!unknownIds) return;
+    const supabase = createBrowserSupabase();
+    if (!supabase) return;
+    void supabase
+      .from("profiles")
+      .select("id, username, avatar_url")
+      .in("id", unknownIds.split(","))
+      .then(({ data }) => {
+        const next: Record<string, { username: string; avatar_url: string | null }> = {};
+        for (const id of unknownIds.split(",")) next[id] = { username: "", avatar_url: null };
+        for (const p of data ?? []) next[p.id] = { username: p.username, avatar_url: p.avatar_url };
+        setPeople((prev) => ({ ...prev, ...next }));
+      });
+  }, [unknownIds]);
 
   // Прокрутка вниз только когда пришло новое сообщение (а не когда подгрузили старые)
   const newestId = messages[messages.length - 1]?.id;
@@ -148,10 +168,14 @@ export function ChatBox({ room, initial, viewerId, isAdmin, labels, heightClass 
         {messages.length === 0 ? (
           <p className="text-sm text-snow-dim">{labels.empty}</p>
         ) : (
-          messages.map((m) => (
+          messages.map((m) => {
+            const who = people[m.user_id];
+            const name = who?.username || m.username;
+            return (
             <div key={m.id} className="text-sm">
-              <div className="flex items-baseline gap-2">
-                <span className={`font-semibold ${m.user_id === viewerId ? "text-neon" : ""}`}>{m.username}</span>
+              <div className="flex items-center gap-2">
+                <Avatar url={who?.avatar_url} name={name} size={22} />
+                <span className={`font-semibold ${m.user_id === viewerId ? "text-neon" : ""}`}>{name}</span>
                 <span className="text-xs text-snow-dim">{time(m.created_at)}</span>
                 {(isAdmin || m.user_id === viewerId) && (
                   <button
@@ -165,7 +189,8 @@ export function ChatBox({ room, initial, viewerId, isAdmin, labels, heightClass 
               </div>
               <p className="whitespace-pre-line break-words text-snow/90">{m.body}</p>
             </div>
-          ))
+            );
+          })
         )}
       </div>
 

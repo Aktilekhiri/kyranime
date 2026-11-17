@@ -202,6 +202,7 @@ export async function updateComment(formData: FormData) {
   await flashError("Комментарий не изменён (выполни SQL из supabase/edit.sql)", error);
   revalidatePath(`/anime/${String(formData.get("slug"))}`);
   revalidatePath("/watch/[slug]/[ep]", "page");
+  revalidatePath("/profile");
 }
 
 /** Сменить ник: 3–24 символа, буквы, цифры, _ . - ; ник должен быть свободным. */
@@ -332,6 +333,7 @@ export async function deleteComment(formData: FormData) {
   await supabase.from("comments").delete().eq("id", String(formData.get("id")));
   revalidatePath(`/anime/${String(formData.get("slug"))}`);
   revalidatePath("/watch/[slug]/[ep]", "page");
+  revalidatePath("/profile");
 }
 
 export async function toggleFavorite(formData: FormData) {
@@ -682,4 +684,50 @@ export async function setTitleHidden(formData: FormData) {
     return;
   }
   revalidateCatalogPages();
+}
+
+export type AvatarState = { ok?: boolean; error?: string; url?: string };
+
+/** Стираем все файлы пользователя в bucket "avatars" (у каждого своя папка с именем = id). */
+async function wipeAvatarFiles(supabase: NonNullable<Awaited<ReturnType<typeof createClient>>>, userId: string) {
+  const { data } = await supabase.storage.from("avatars").list(userId, { limit: 100 });
+  const paths = (data ?? []).map((f) => `${userId}/${f.name}`);
+  if (paths.length) await supabase.storage.from("avatars").remove(paths);
+}
+
+/** Загрузка своей аватарки (браузер заранее сжимает фото до 256×256). */
+export async function uploadAvatar(formData: FormData): Promise<AvatarState> {
+  const supabase = await createClient();
+  const user = await getUser();
+  if (!supabase || !user) return { error: "Нужно войти" };
+  const file = formData.get("avatar");
+  if (!(file instanceof File) || file.size === 0) return { error: "Файл не выбран" };
+  if (file.type !== "image/jpeg") return { error: "Нужна картинка JPG" };
+  if (file.size > 600 * 1024) return { error: "Файл слишком большой" };
+
+  await wipeAvatarFiles(supabase, user.id);
+  const path = `${user.id}/${Date.now()}.jpg`;
+  const { error: upErr } = await supabase.storage
+    .from("avatars")
+    .upload(path, file, { contentType: "image/jpeg", cacheControl: "31536000" });
+  if (upErr) return { error: `Не удалось загрузить: ${upErr.message} (выполни SQL из supabase/avatars.sql)` };
+
+  const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+  const { error } = await supabase.from("profiles").update({ avatar_url: pub.publicUrl }).eq("id", user.id);
+  if (error) return { error: `Файл загружен, но ссылка не сохранилась: ${error.message}` };
+  revalidatePath("/", "layout");
+  return { ok: true, url: pub.publicUrl };
+}
+
+/** Убрать аватарку: свою или (админ) чужую, если передан user_id. */
+export async function removeAvatar(formData: FormData) {
+  const supabase = await createClient();
+  const user = await getUser();
+  if (!supabase || !user) redirect("/login");
+  const target = String(formData.get("user_id") ?? "") || user.id;
+  if (target !== user.id && !isAdminEmail(user.email)) return;
+  await wipeAvatarFiles(supabase, target);
+  const { error } = await supabase.from("profiles").update({ avatar_url: null }).eq("id", target);
+  await flashError("Аватарка не удалена (выполни SQL из supabase/avatars.sql)", error);
+  revalidatePath("/", "layout");
 }

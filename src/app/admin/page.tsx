@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { addEpisode, addTitle } from "@/app/actions";
+import { addEpisode, addTitle, removeAvatar } from "@/app/actions";
 import { AdminField } from "@/components/AdminField";
 import { AspectField } from "@/components/AspectField";
 import { ReleaseDaysField } from "@/components/ReleaseDaysField";
 import { VideoUploader } from "@/components/VideoUploader";
-import { listTitlesForAdmin } from "@/lib/data";
+import { Avatar } from "@/components/Avatar";
+import { listAvatarsForAdmin, listTitlesForAdmin } from "@/lib/data";
 import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Админка" };
@@ -24,7 +25,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const user = await getUser();
   if (!user || !isAdminEmail(user.email)) redirect("/");
 
-  const titles = await listTitlesForAdmin();
+  const [titles, avatars] = await Promise.all([listTitlesForAdmin(), listAvatarsForAdmin()]);
   const supabase = (await createClient())!;
   const { data: dubRows } = await supabase
     .from("dubs")
@@ -151,6 +152,28 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             </button>
           </div>
         </form>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-bold">Аватарки ({avatars.length})</h2>
+        {avatars.length === 0 ? (
+          <p className="text-sm text-snow-dim">Пока никто не загрузил аватарку.</p>
+        ) : (
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+            {avatars.map((a) => (
+              <li key={a.id} className="card flex flex-col items-center gap-2 p-3 text-center">
+                <Avatar url={a.avatar_url} name={a.username} size={96} />
+                <span className="w-full truncate text-sm font-semibold">{a.username}</span>
+                <form action={removeAvatar}>
+                  <input type="hidden" name="user_id" value={a.id} />
+                  <button type="submit" className="text-xs text-snow-dim underline hover:text-snow">
+                    Удалить аву
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );

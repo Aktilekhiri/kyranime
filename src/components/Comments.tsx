@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Avatar } from "@/components/Avatar";
 import { addComment, deleteComment, toggleReaction, updateComment } from "@/app/actions";
 import type { Dict } from "@/lib/i18n";
 import { REACTIONS } from "@/lib/social";
@@ -33,7 +34,10 @@ export function Comments({ heading, comments, titleId, slug, episode, viewerId, 
     return (
       <li key={c.id} className={isReply ? "border-l-2 border-ink-300 pl-3" : "card p-4"}>
         <div className="flex items-center justify-between gap-3">
-          <span className="font-semibold">{c.username}</span>
+          <span className="flex min-w-0 items-center gap-2 font-semibold">
+            <Avatar url={c.avatar_url} name={c.username} size={28} />
+            <span className="truncate">{c.username}</span>
+          </span>
           <span className="text-xs text-snow-dim">
             {formatDate(c.created_at)}
             {c.edited_at ? ` · ${t.edited}` : ""}

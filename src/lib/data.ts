@@ -244,7 +244,7 @@ type RawComment = {
   edited_at?: string | null;
   parent_id?: string | null;
   reply_to_id?: string | null;
-  profiles: { username: string } | { username: string }[] | null;
+  profiles: { username: string; avatar_url?: string | null } | { username: string; avatar_url?: string | null }[] | null;
   comment_reactions?: { user_id: string; emoji: string }[] | null;
 };
 
@@ -267,7 +267,7 @@ export async function listComments(
     return req.order("created_at", { ascending: false }).limit(200);
   };
 
-  const FK = "profiles!comments_user_id_fkey(username)";
+  const FK = "profiles!comments_user_id_fkey(username, avatar_url)";
   const REL = "parent_id, reply_to_id";
   // Если edit.sql ещё не выполнен (нет edited_at), падаем на прежний набор колонок
   let res = await query(`id, user_id, body, created_at, edited_at, ${REL}, ${FK}, comment_reactions(user_id, emoji)`);
@@ -297,6 +297,7 @@ export async function listComments(
       created_at: c.created_at,
       edited_at: c.edited_at ?? null,
       username: profile?.username ?? "user",
+      avatar_url: profile?.avatar_url ?? null,
       parent_id: c.parent_id ?? null,
       reply_to_id: c.reply_to_id ?? null,
       reactions: [...counts.entries()].map(([emoji, v]) => ({ emoji, ...v })),
@@ -324,4 +325,44 @@ export async function listTitlesForAdmin(): Promise<Title[]> {
   if (!supabase) return [];
   const { data } = await supabase.from("titles").select("*").order("created_at", { ascending: false });
   return (data ?? []) as Title[];
+}
+
+export type MyComment = {
+  id: string;
+  body: string;
+  created_at: string;
+  edited_at: string | null;
+  season: number | null;
+  number: number | null;
+  slug: string;
+  title_ky: string;
+  title_ru: string;
+};
+
+/** Все комментарии пользователя (на тайтлах и сериях) для страницы профиля. */
+export async function listMyComments(userId: string): Promise<MyComment[]> {
+  const supabase = await createClient();
+  if (!supabase) return [];
+  const base = "id, body, created_at, season, number, titles(slug, title_ky, title_ru)";
+  let res = await supabase.from("comments").select(`${base}, edited_at`).eq("user_id", userId).order("created_at", { ascending: false }).limit(100);
+  if (res.error) res = (await supabase.from("comments").select(base).eq("user_id", userId).order("created_at", { ascending: false }).limit(100)) as typeof res;
+  type Row = { id: string; body: string; created_at: string; edited_at?: string | null; season: number | null; number: number | null; titles: { slug: string; title_ky: string; title_ru: string } | { slug: string; title_ky: string; title_ru: string }[] | null };
+  return ((res.data ?? []) as unknown as Row[]).flatMap((c) => {
+    const t = Array.isArray(c.titles) ? c.titles[0] : c.titles;
+    if (!t) return [];
+    return [{ id: c.id, body: c.body, created_at: c.created_at, edited_at: c.edited_at ?? null, season: c.season, number: c.number, slug: t.slug, title_ky: t.title_ky, title_ru: t.title_ru }];
+  });
+}
+
+/** Аватарки всех пользователей, у кого она есть (для модерации в админке). */
+export async function listAvatarsForAdmin(): Promise<{ id: string; username: string; avatar_url: string }[]> {
+  const supabase = await createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, username, avatar_url")
+    .not("avatar_url", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(200);
+  return (data ?? []) as { id: string; username: string; avatar_url: string }[];
 }
