@@ -3,3 +3,4 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://kyranime.c
 
 /** Telegram-канал и чат сайта */
 export const TELEGRAM_URL = "https://t.me/kyranime";
+export const TELEGRAM_CHAT_URL = "https://t.me/chatkyranime";
