@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ChatBox } from "@/components/ChatBox";
+import { TelegramBanner } from "@/components/TelegramBanner";
 import { listChat } from "@/lib/data";
 import { getDict, getLocale } from "@/lib/i18n";
 import { chatLabels } from "@/lib/social";
@@ -16,6 +17,7 @@ export default async function ChatPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
+      <TelegramBanner />
       <h1 className="text-2xl font-bold">{t.chatGlobal}</h1>
       <ChatBox
         room="global"

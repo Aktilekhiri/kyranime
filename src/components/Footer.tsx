@@ -1,4 +1,5 @@
 import { getDict, getLocale } from "@/lib/i18n";
+import { TELEGRAM_URL } from "@/lib/site";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 
 export async function Footer() {
@@ -16,6 +17,12 @@ export async function Footer() {
           </a>
         </p>
         <p>{t.footerNote}</p>
+        <p>
+          Telegram:{" "}
+          <a className="text-neon underline underline-offset-2" href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer">
+            t.me/kyranime
+          </a>
+        </p>
         {!isSupabaseConfigured() && <p className="text-snow-dim/70">{t.demoNotice}</p>}
       </div>
     </footer>

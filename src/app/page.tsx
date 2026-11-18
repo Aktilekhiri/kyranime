@@ -1,6 +1,7 @@
 import { episodeHref } from "@/lib/dubs";
 import Link from "next/link";
 import { AnimeCard } from "@/components/AnimeCard";
+import { TelegramBanner } from "@/components/TelegramBanner";
 import { listContinueWatching, listTitles } from "@/lib/data";
 import { getDict, getLocale, pick } from "@/lib/i18n";
 import { getViewer } from "@/lib/supabase/server";
@@ -25,6 +26,8 @@ export default async function HomePage() {
           </Link>
         )}
       </section>
+
+      <TelegramBanner />
 
       {resume.length > 0 && (
         <section>
