@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthForm } from "@/components/AuthForm";
+import { GoogleButton } from "@/components/GoogleButton";
 import { TelegramLogin } from "@/components/TelegramLogin";
 import { getDict, getLocale } from "@/lib/i18n";
 import { telegramAuthConfigured } from "@/lib/supabase/admin";
@@ -26,6 +27,7 @@ export default async function LoginPage({
         next={next}
         labels={{ email: t.email, password: t.password, login: t.login, register: t.register }}
       />
+      {process.env.GOOGLE_AUTH_ENABLED === "1" && <GoogleButton label={t.googleLogin} next={next} />}
       {telegramAuthConfigured() && (
         <TelegramLogin
           next={next}

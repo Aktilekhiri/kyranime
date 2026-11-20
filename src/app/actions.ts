@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { CHAT_ROOM_RE, REACTIONS, safeAspect } from "@/lib/social";
 import type { ChatMessage } from "@/lib/types";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDict, getLocale } from "@/lib/i18n";
 import { randomBytes } from "node:crypto";
@@ -103,6 +103,20 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   // Если в Supabase включено подтверждение почты, сессии ещё нет: просим открыть письмо
   if (!data.session) return { info: t.checkEmail };
   redirect(safePath(String(formData.get("next") ?? "/")));
+}
+
+export async function signInWithGoogle(formData: FormData) {
+  const supabase = await createClient();
+  if (!supabase) redirect("/login");
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const next = safePath(String(formData.get("next") ?? "/"));
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: `https://${host}/auth/callback?next=${encodeURIComponent(next)}` },
+  });
+  if (error || !data.url) redirect("/login");
+  redirect(data.url);
 }
 
 export async function signOut() {
