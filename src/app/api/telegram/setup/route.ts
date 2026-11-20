@@ -16,7 +16,15 @@ export async function GET() {
     body: JSON.stringify({ url: `${SITE_URL}/api/telegram`, secret_token: secret, allowed_updates: ["message"] }),
   });
   const data = (await res.json().catch(() => ({}))) as { ok?: boolean; description?: string };
-  return new Response(data.ok ? `Готово: вебхук установлен (${SITE_URL}/api/telegram)` : `Ошибка Telegram: ${data.description ?? res.status}`, {
+  // Диагностика: что Telegram видит у вебхука (последняя ошибка, сколько сообщений ждёт)
+  const info = await fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`)
+    .then((r) => r.json() as Promise<{ result?: { url?: string; pending_update_count?: number; last_error_date?: number; last_error_message?: string } }>)
+    .catch(() => null);
+  const i = info?.result;
+  const report = i
+    ? `\nURL: ${i.url}\nОжидают: ${i.pending_update_count ?? 0}\nПоследняя ошибка: ${i.last_error_message ?? "нет"}${i.last_error_date ? ` (${new Date(i.last_error_date * 1000).toISOString()})` : ""}`
+    : "";
+  return new Response((data.ok ? `Готово: вебхук установлен (${SITE_URL}/api/telegram)` : `Ошибка Telegram: ${data.description ?? res.status}`) + report, {
     status: data.ok ? 200 : 502,
     headers: { "content-type": "text/plain; charset=utf-8" },
   });

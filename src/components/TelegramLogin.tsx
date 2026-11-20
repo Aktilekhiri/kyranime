@@ -1,5 +1,6 @@
 "use client";
 
+import { TelegramIcon } from "@/components/TelegramIcon";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { checkTelegramLogin, startTelegramLogin } from "@/app/actions";
@@ -46,8 +47,8 @@ export function TelegramLogin({ next, labels }: { next: string; labels: Labels }
   return (
     <div className="space-y-3">
       <p className="text-center text-sm text-snow-dim">{labels.or}</p>
-      <button type="button" onClick={begin} disabled={state === "waiting"} className="btn-ghost w-full">
-        ✈ {labels.button}
+      <button type="button" onClick={begin} disabled={state === "waiting"} className="btn-ghost flex w-full items-center justify-center gap-2">
+        <TelegramIcon className="size-6" /> {labels.button}
       </button>
       {state === "waiting" && url && (
         <p role="status" className="text-center text-sm text-snow-dim">

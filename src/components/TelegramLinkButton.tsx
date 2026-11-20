@@ -1,5 +1,6 @@
 "use client";
 
+import { TelegramIcon } from "@/components/TelegramIcon";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { startTelegramLink } from "@/app/actions";
@@ -34,8 +35,8 @@ export function TelegramLinkButton({ label, hint }: { label: string; hint: strin
 
   return (
     <div className="space-y-2">
-      <button type="button" onClick={begin} disabled={busy} className="btn-primary">
-        ✈ {label}
+      <button type="button" onClick={begin} disabled={busy} className="btn-primary inline-flex items-center gap-2">
+        <TelegramIcon className="size-6" /> {label}
       </button>
       <p className="text-sm text-snow-dim">{error ?? hint}</p>
     </div>
