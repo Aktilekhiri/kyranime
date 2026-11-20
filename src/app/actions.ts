@@ -794,26 +794,31 @@ export async function getProfilesByIds(ids: string[]): Promise<{ id: string; use
 
 const BOT = process.env.TELEGRAM_BOT_USERNAME || "kyranime_bot";
 
-async function newToken(kind: "login" | "link", userId: string | null): Promise<{ token: string; url: string } | null> {
+export type TgStart = { token: string; url: string } | { error: string };
+
+async function newToken(kind: "login" | "link", userId: string | null): Promise<TgStart> {
   const admin = createAdminClient();
-  if (!admin || !telegramAuthConfigured()) return null;
+  if (!admin || !telegramAuthConfigured()) return { error: "Нет переменных Telegram/Supabase в Vercel" };
   const token = randomBytes(18).toString("hex");
   // Заодно чистим старые коды
   await admin.from("telegram_tokens").delete().lt("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString());
   const { error } = await admin.from("telegram_tokens").insert({ token, kind, user_id: userId });
-  if (error) return null;
+  if (error) {
+    console.error("[telegram] newToken", error);
+    // Подсказка для админа: чаще всего не выполнен supabase/telegram.sql или неверный ключ service_role
+    return { error: error.code === "42P01" || /relation|does not exist|schema cache/i.test(error.message) ? "Не выполнен SQL telegram.sql в Supabase" : /jwt|api key|invalid/i.test(error.message) ? "Неверный SUPABASE_SERVICE_ROLE_KEY в Vercel" : error.message };
+  }
   return { token, url: `https://t.me/${BOT}?start=${kind}_${token}` };
 }
 
-export async function startTelegramLogin(): Promise<{ token: string; url: string } | null> {
+export async function startTelegramLogin(): Promise<TgStart> {
   return newToken("login", null);
 }
 
-export async function startTelegramLink(): Promise<{ url: string } | null> {
+export async function startTelegramLink(): Promise<TgStart> {
   const user = await getUser();
-  if (!user) return null;
-  const t = await newToken("link", user.id);
-  return t ? { url: t.url } : null;
+  if (!user) return { error: "Сначала войдите" };
+  return newToken("link", user.id);
 }
 
 /** Опрашивается страницей входа: когда человек нажал Start в боте, создаём/находим аккаунт и входим. */

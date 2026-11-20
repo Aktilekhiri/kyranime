@@ -10,6 +10,7 @@ type Labels = { button: string; waiting: string; failed: string; open: string; o
 export function TelegramLogin({ next, labels }: { next: string; labels: Labels }) {
   const router = useRouter();
   const [state, setState] = useState<"idle" | "waiting" | "failed">("idle");
+  const [detail, setDetail] = useState<string | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -19,7 +20,10 @@ export function TelegramLogin({ next, labels }: { next: string; labels: Labels }
 
   async function begin() {
     const t = await startTelegramLogin();
-    if (!t) return setState("failed");
+    if ("error" in t) {
+      setDetail(t.error);
+      return setState("failed");
+    }
     setUrl(t.url);
     setState("waiting");
     window.open(t.url, "_blank", "noopener");
@@ -56,6 +60,7 @@ export function TelegramLogin({ next, labels }: { next: string; labels: Labels }
       {state === "failed" && (
         <p role="alert" className="text-center text-sm text-snow-dim">
           {labels.failed}
+          {detail ? <span className="mt-1 block text-xs">({detail})</span> : null}
         </p>
       )}
     </div>

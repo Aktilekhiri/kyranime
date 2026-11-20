@@ -8,6 +8,7 @@ import { startTelegramLink } from "@/app/actions";
 export function TelegramLinkButton({ label, hint }: { label: string; hint: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => () => {
     if (timer.current) clearInterval(timer.current);
@@ -16,7 +17,10 @@ export function TelegramLinkButton({ label, hint }: { label: string; hint: strin
   async function begin() {
     setBusy(true);
     const t = await startTelegramLink();
-    if (!t) return setBusy(false);
+    if ("error" in t) {
+      setError(t.error);
+      return setBusy(false);
+    }
     window.open(t.url, "_blank", "noopener");
     let n = 0;
     timer.current = setInterval(() => {
@@ -33,7 +37,7 @@ export function TelegramLinkButton({ label, hint }: { label: string; hint: strin
       <button type="button" onClick={begin} disabled={busy} className="btn-primary">
         ✈ {label}
       </button>
-      <p className="text-sm text-snow-dim">{hint}</p>
+      <p className="text-sm text-snow-dim">{error ?? hint}</p>
     </div>
   );
 }
