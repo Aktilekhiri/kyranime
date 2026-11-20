@@ -8,7 +8,7 @@ import { AnimeCard } from "@/components/AnimeCard";
 import { setTelegramNotify, unlinkTelegram } from "@/app/actions";
 import { TelegramLinkButton } from "@/components/TelegramLinkButton";
 import { telegramAuthConfigured } from "@/lib/supabase/admin";
-import { listContinueWatching, listFavorites, listMyComments } from "@/lib/data";
+import { listContinueWatching, listFavorites, getWatchStats, listMyComments } from "@/lib/data";
 import { getDict, getLocale, pick } from "@/lib/i18n";
 import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
 
@@ -27,10 +27,11 @@ export default async function ProfilePage() {
   const { data: profile } = await supabase!.from("profiles").select("username, avatar_url").eq("id", user.id).maybeSingle();
 
   const { data: tg } = await supabase!.from("telegram_links").select("username, notify").eq("user_id", user.id).maybeSingle();
-  const [favorites, resume, myComments] = await Promise.all([
+  const [favorites, resume, myComments, stats] = await Promise.all([
     listFavorites(user.id),
     listContinueWatching(user.id),
     listMyComments(user.id),
+    getWatchStats(user.id),
   ]);
 
   return (
@@ -183,6 +184,27 @@ export default async function ProfilePage() {
           )}
         </section>
       )}
+
+      <section>
+        <h2 className="mb-4 text-xl font-bold">{t.statsTitle}</h2>
+        <dl className="grid grid-cols-3 gap-3">
+          {[
+            [stats.episodes, t.statEpisodes],
+            [stats.titles, t.statTitles],
+            [`≈${stats.hours}`, t.statHours],
+          ].map(([value, label]) => (
+            <div key={label} className="rounded-xl border border-ink-200 bg-ink-100 p-4 text-center">
+              <dd className="text-2xl font-black">{value}</dd>
+              <dt className="mt-1 text-xs text-snow-dim">{label}</dt>
+            </div>
+          ))}
+        </dl>
+        {stats.genres.length > 0 && (
+          <p className="mt-3 text-sm text-snow-dim">
+            {t.statGenres}: <span className="text-snow">{stats.genres.join(", ")}</span>
+          </p>
+        )}
+      </section>
 
       <Link href="/list" className="btn-ghost inline-flex">{t.myLists} →</Link>
 

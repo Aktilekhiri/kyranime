@@ -592,3 +592,33 @@ export async function markEpisodeOpened(userId: string, episodeId: string, posit
     updated_at: new Date().toISOString(),
   });
 }
+
+const MINUTES_PER_EPISODE = 24; // длительность серии нигде не хранится, считаем приблизительно
+
+export type WatchStats = { episodes: number; titles: number; hours: number; genres: string[] };
+
+/** Статистика профиля по истории просмотра (серия считается просмотренной, когда её открыли). */
+export async function getWatchStats(userId: string): Promise<WatchStats> {
+  const out: WatchStats = { episodes: 0, titles: 0, hours: 0, genres: [] };
+  const supabase = await createClient();
+  if (!supabase) return out;
+  const { data } = await supabase
+    .from("watch_progress")
+    .select("episodes(title_id, titles(genres))")
+    .eq("user_id", userId)
+    .limit(5000);
+  const titles = new Set<string>();
+  const genreCount = new Map<string, number>();
+  for (const row of data ?? []) {
+    const ep = row.episodes as unknown as { title_id: string; titles: { genres: string[] | null } | { genres: string[] | null }[] | null } | null;
+    if (!ep) continue;
+    out.episodes++;
+    titles.add(ep.title_id);
+    const t = Array.isArray(ep.titles) ? ep.titles[0] : ep.titles;
+    for (const g of t?.genres ?? []) genreCount.set(g, (genreCount.get(g) ?? 0) + 1);
+  }
+  out.titles = titles.size;
+  out.hours = Math.round((out.episodes * MINUTES_PER_EPISODE) / 60);
+  out.genres = [...genreCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([g]) => g);
+  return out;
+}
