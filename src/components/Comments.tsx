@@ -36,7 +36,9 @@ export function Comments({ heading, comments, titleId, slug, episode, viewerId, 
         <div className="flex items-center justify-between gap-3">
           <span className="flex min-w-0 items-center gap-2 font-semibold">
             <Avatar url={c.avatar_url} name={c.username} size={28} />
-            <span className="truncate">{c.username}</span>
+            <Link href={`/u/${encodeURIComponent(c.username)}`} className="truncate hover:underline">
+              {c.username}
+            </Link>
           </span>
           <span className="text-xs text-snow-dim">
             {formatDate(c.created_at)}

@@ -175,7 +175,12 @@ export function ChatBox({ room, initial, viewerId, isAdmin, labels, heightClass 
             <div key={m.id} className="text-sm">
               <div className="flex items-center gap-2">
                 <Avatar url={who?.avatar_url} name={name} size={22} />
-                <span className={`font-semibold ${m.user_id === viewerId ? "text-neon" : ""}`}>{name}</span>
+                <Link
+                  href={`/u/${encodeURIComponent(name)}`}
+                  className={`font-semibold hover:underline ${m.user_id === viewerId ? "text-neon" : ""}`}
+                >
+                  {name}
+                </Link>
                 <span className="text-xs text-snow-dim">{time(m.created_at)}</span>
                 {(isAdmin || m.user_id === viewerId) && (
                   <button

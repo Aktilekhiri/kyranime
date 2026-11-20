@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { saveProgress } from "@/app/actions";
 import { Player } from "@/components/Player";
 
 type Labels = { prev: string; next: string; nextIn: string; watchNow: string; cancel: string; fullscreen: string };
@@ -37,13 +38,24 @@ export function EpisodeFrame({ embedSrc, src, title, episodeId, startAt, canSave
     if (!nextHref || dismissed.current) return;
     setCount((c) => (c === null ? COUNTDOWN : c));
   };
+  const lastSaved = useRef(0);
   const onPlayback = (seconds: number, duration: number) => {
+    // Плеер Bunny сам прогресс не пишет: запоминаем место просмотра раз в 15 секунд
+    if (embedSrc && canSave && seconds > 5 && Date.now() - lastSaved.current > 15000) {
+      lastSaved.current = Date.now();
+      void saveProgress(episodeId, seconds);
+    }
     if (!nextHref || dismissed.current || !Number.isFinite(seconds)) return;
     if ((outroSec !== null && seconds >= outroSec) || (duration > 0 && seconds >= duration - 1)) start();
   };
   // Свежие обработчики для слушателя сообщений (он подписывается один раз)
   const handlers = useRef({ onPlayback, start });
   handlers.current = { onPlayback, start };
+
+  // Открытая серия попадает в «Продолжить просмотр», даже если время ещё не известно
+  useEffect(() => {
+    if (embedSrc && canSave && startAt === 0) void saveProgress(episodeId, 0);
+  }, [embedSrc, canSave, startAt, episodeId]);
 
   // Отсчёт
   useEffect(() => {
@@ -84,7 +96,15 @@ export function EpisodeFrame({ embedSrc, src, title, episodeId, startAt, canSave
       }
       const d = data as { context?: string; event?: string; value?: { seconds?: number; duration?: number } };
       if (!d || d.context !== "player.js") return;
-      if (d.event === "ready") subscribe();
+      if (d.event === "ready") {
+        subscribe();
+        if (startAt > 5) {
+          frame.current?.contentWindow?.postMessage(
+            JSON.stringify({ context: "player.js", version: "0.0.11", method: "setCurrentTime", value: startAt }),
+            origin,
+          );
+        }
+      }
       else if (d.event === "timeupdate" && d.value) handlers.current.onPlayback(Number(d.value.seconds), Number(d.value.duration));
       else if (d.event === "ended") handlers.current.start();
     };
@@ -95,7 +115,7 @@ export function EpisodeFrame({ embedSrc, src, title, episodeId, startAt, canSave
       window.removeEventListener("message", onMessage);
       el?.removeEventListener("load", subscribe);
     };
-  }, [embedSrc]);
+  }, [embedSrc, startAt]);
 
   function toggleFullscreen() {
     const el = wrap.current;

@@ -366,3 +366,15 @@ export async function listAvatarsForAdmin(): Promise<{ id: string; username: str
     .limit(200);
   return (data ?? []) as { id: string; username: string; avatar_url: string }[];
 }
+
+/** Публичная часть профиля: ник, аватарка, дата регистрации (почта и избранное не показываются). */
+export async function getPublicProfile(username: string): Promise<{ id: string; username: string; avatar_url: string | null; created_at: string } | null> {
+  const supabase = await createClient();
+  if (!supabase) return null;
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, username, avatar_url, created_at")
+    .eq("username", username)
+    .maybeSingle();
+  return data ?? null;
+}

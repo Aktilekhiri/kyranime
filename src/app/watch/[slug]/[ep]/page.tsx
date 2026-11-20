@@ -101,7 +101,7 @@ export default async function WatchPage({
   const embedSrc = bunnyEmbedUrl(episode.hls_url);
   const aspect = safeAspect(episode.aspect);
   const [startAt, comments] = await Promise.all([
-    user && !embedSrc ? getProgress(user.id, episode.id) : Promise.resolve(0),
+    user ? getProgress(user.id, episode.id) : Promise.resolve(0),
     listComments(
       title.id,
       { season: episode.season, number: episode.number },
