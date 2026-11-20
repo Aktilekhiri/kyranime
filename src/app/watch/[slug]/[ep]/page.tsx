@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Comments } from "@/components/Comments";
-import { Player } from "@/components/Player";
+import { EpisodeFrame } from "@/components/EpisodeFrame";
 import {
   getProgress,
   getTitleBySlug,
@@ -153,33 +153,27 @@ export default async function WatchPage({
           </div>
         )}
 
-        {embedSrc ? (
-          // Ссылка от Bunny (player.mediadelivery.net): показываем его плеер целиком
-          <div
-            className="relative w-full overflow-hidden rounded-xl bg-black"
-            style={{ aspectRatio: aspect }}
-          >
-            <iframe
-              key={episode.id}
-              src={embedSrc}
-              title={`${pick(title, "title", locale)} · ${episode.number}`}
-              loading="lazy"
-              allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen"
-              allowFullScreen
-              className="absolute inset-0 size-full border-0"
-            />
-          </div>
-        ) : (
-          <Player
-            key={episode.id}
-            src={episode.hls_url}
-            episodeId={episode.id}
-            startAt={startAt}
-            nextHref={next ? href(next) : null}
-            canSave={Boolean(user)}
-            aspect={aspect}
-          />
-        )}
+        <EpisodeFrame
+          key={episode.id}
+          embedSrc={embedSrc}
+          src={episode.hls_url}
+          title={`${pick(title, "title", locale)} · ${episode.number}`}
+          episodeId={episode.id}
+          startAt={startAt}
+          canSave={Boolean(user)}
+          aspect={aspect}
+          prevHref={prev ? href(prev) : null}
+          nextHref={next ? href(next) : null}
+          outroSec={episode.outro_sec ?? null}
+          labels={{
+            prev: t.prevEpisode,
+            next: t.nextEpisode,
+            nextIn: t.nextIn,
+            watchNow: t.watchNow,
+            cancel: t.cancel,
+            fullscreen: t.fullscreen,
+          }}
+        />
 
         <div className="flex flex-wrap gap-3">
           {prev && (

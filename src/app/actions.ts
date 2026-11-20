@@ -412,6 +412,16 @@ export async function addTitle(formData: FormData) {
   revalidatePath("/admin");
 }
 
+/** «25:20», «1:02:03» или просто секунды → секунды; пусто или неверно → null */
+function parseOutro(raw: FormDataEntryValue | null): number | null {
+  const text = String(raw ?? "").trim();
+  if (!text) return null;
+  const parts = text.split(":").map((p) => Number(p));
+  if (parts.length > 3 || parts.some((n) => !Number.isFinite(n) || n < 0)) return null;
+  const sec = parts.reduce((acc, n) => acc * 60 + n, 0);
+  return sec > 0 ? Math.round(sec) : null;
+}
+
 function revalidateCatalogPages() {
   revalidateTag("catalog");
   revalidatePath("/");
@@ -469,8 +479,10 @@ export async function updateEpisode(formData: FormData) {
   };
   const save = (values: Record<string, unknown>) =>
     supabase.from("episodes").update(values).eq("id", id).select("title_id").maybeSingle();
-  let { data, error } = await save({ ...fields, aspect: safeAspect(String(formData.get("aspect"))) });
-  // Если колонки aspect ещё нет (SQL не выполнен), сохраняем без неё
+  const extra = { aspect: safeAspect(String(formData.get("aspect"))), outro_sec: parseOutro(formData.get("outro")) };
+  let { data, error } = await save({ ...fields, ...extra });
+  // Если новых колонок ещё нет (SQL не выполнен), сохраняем без них по очереди
+  if (error) ({ data, error } = await save({ ...fields, aspect: extra.aspect }));
   if (error) ({ data, error } = await save(fields));
   if (error || !data) redirect(`/admin/episode/${id}?error=save`);
 

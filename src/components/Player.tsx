@@ -8,12 +8,14 @@ type Props = {
   src: string;
   episodeId: string;
   startAt: number;
-  nextHref: string | null;
   canSave: boolean;
   aspect?: string;
+  /** Текущее время и длительность (для отсчёта до следующей серии) */
+  onTime?: (seconds: number, duration: number) => void;
+  onEnded?: () => void;
 };
 
-export function Player({ src, episodeId, startAt, nextHref, canSave, aspect = "16/9" }: Props) {
+export function Player({ src, episodeId, startAt, canSave, aspect = "16/9", onTime, onEnded }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
 
   // Подключаем HLS (Safari играет m3u8 сам, остальным нужен hls.js)
@@ -64,17 +66,25 @@ export function Player({ src, episodeId, startAt, nextHref, canSave, aspect = "1
     };
   }, [episodeId, canSave]);
 
+  const timeRef = useRef(onTime);
+  timeRef.current = onTime;
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+    const handler = () => timeRef.current?.(video.currentTime, video.duration);
+    video.addEventListener("timeupdate", handler);
+    return () => video.removeEventListener("timeupdate", handler);
+  }, []);
+
   return (
     <video
       ref={ref}
       controls
       playsInline
       preload="metadata"
-      className="w-full rounded-xl bg-black"
+      className="max-h-screen w-full rounded-xl bg-black"
       style={{ aspectRatio: aspect }}
-      onEnded={() => {
-        if (nextHref) window.location.href = nextHref;
-      }}
+      onEnded={onEnded}
     />
   );
 }

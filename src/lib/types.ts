@@ -31,6 +31,8 @@ export type Episode = {
   dub_id: string | null;
   /** Формат кадра: "16/9", "2/1", "21/9", "4/3" */
   aspect?: string | null;
+  /** С какой секунды идут титры (для отсчёта до следующей серии) */
+  outro_sec?: number | null;
 };
 
 export type Dub = {

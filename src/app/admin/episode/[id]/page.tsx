@@ -75,6 +75,16 @@ export default async function EditEpisodePage({
           defaultValue={episode.duration_sec ? Math.round(episode.duration_sec / 60) : null}
         />
         <AspectField defaultValue={episode.aspect} />
+        <AdminField
+          label="Начало титров (мм:сс), необязательно"
+          name="outro"
+          placeholder="например 22:10"
+          defaultValue={
+            episode.outro_sec
+              ? `${Math.floor(episode.outro_sec / 60)}:${String(episode.outro_sec % 60).padStart(2, "0")}`
+              : null
+          }
+        />
         <div className="flex items-end">
           <label className="flex cursor-pointer items-center gap-3 py-2.5 text-sm">
             <input type="checkbox" name="published" defaultChecked={episode.published} className="size-5 accent-neon" />

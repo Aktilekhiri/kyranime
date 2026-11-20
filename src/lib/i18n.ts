@@ -47,6 +47,9 @@ const dict = {
     dubbedBy: "Дубляж",
     nextEpisode: "Кийинки серия",
     prevEpisode: "Мурунку серия",
+    nextIn: "Кийинки серия {n} сек ичинде",
+    watchNow: "Азыр",
+    fullscreen: "Толук экран",
     backToTitle: "Анимеге кайтуу",
     forRightsholders: "Укук ээлери үчүн",
     rightsText:
@@ -138,6 +141,9 @@ const dict = {
     dubbedBy: "Озвучка",
     nextEpisode: "Следующая серия",
     prevEpisode: "Предыдущая серия",
+    nextIn: "Следующая серия через {n} сек",
+    watchNow: "Сейчас",
+    fullscreen: "Во весь экран",
     backToTitle: "К тайтлу",
     forRightsholders: "Для правообладателей",
     rightsText:

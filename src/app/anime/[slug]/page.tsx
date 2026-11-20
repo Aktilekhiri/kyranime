@@ -1,3 +1,4 @@
+import { genreKey, genreLabel } from "@/lib/genres";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -148,12 +149,13 @@ export default async function AnimePage({
                 : t.status_completed}
             </span>
             {title.genres.map((g) => (
-              <span
+              <Link
                 key={g}
-                className="rounded-md border border-ink-300 px-2 py-1 text-snow-dim"
+                href={`/catalog?genre=${encodeURIComponent(genreKey(g))}`}
+                className="rounded-md border border-ink-300 px-2 py-1 text-snow-dim hover:border-snow hover:text-snow"
               >
-                {g}
-              </span>
+                {genreLabel(g, locale)}
+              </Link>
             ))}
           </div>
 

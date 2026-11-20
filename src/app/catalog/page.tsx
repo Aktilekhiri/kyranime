@@ -1,3 +1,4 @@
+import { genreKey, genreLabel } from "@/lib/genres";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AnimeCard } from "@/components/AnimeCard";
@@ -19,8 +20,14 @@ export default async function CatalogPage({
   const t = getDict(locale);
 
   const all = await listTitles();
-  const genres = [...new Set(all.flatMap((title) => title.genres))].sort((a, b) => a.localeCompare(b));
-  const titles = genre ? all.filter((title) => title.genres.includes(genre)) : all;
+  // Жанры без дублей («Сёнен» = «сёнен» = «сёнэн»), названия на языке посетителя
+  const labels = new Map<string, string>();
+  for (const g of all.flatMap((title) => title.genres)) {
+    if (!labels.has(genreKey(g))) labels.set(genreKey(g), genreLabel(g, locale));
+  }
+  const genres = [...labels.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  const activeKey = genre ? genreKey(genre) : null;
+  const titles = activeKey ? all.filter((title) => title.genres.some((g) => genreKey(g) === activeKey)) : all;
 
   const chip = (active: boolean) =>
     `shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition ${
@@ -39,12 +46,12 @@ export default async function CatalogPage({
       {genres.length > 0 && (
         // На телефоне жанры прокручиваются вбок одной строкой
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
-          <Link href="/catalog" className={chip(!genre)}>
+          <Link href="/catalog" className={chip(!activeKey)}>
             {t.allGenres}
           </Link>
-          {genres.map((g) => (
-            <Link key={g} href={`/catalog?genre=${encodeURIComponent(g)}`} className={chip(g === genre)}>
-              {g}
+          {genres.map(([key, label]) => (
+            <Link key={key} href={`/catalog?genre=${encodeURIComponent(key)}`} className={chip(key === activeKey)}>
+              {label}
             </Link>
           ))}
         </div>
