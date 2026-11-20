@@ -1,4 +1,5 @@
 import { episodeHref } from "@/lib/dubs";
+import Image from "next/image";
 import Link from "next/link";
 import { AnimeCard } from "@/components/AnimeCard";
 import { TelegramBanner } from "@/components/TelegramBanner";
@@ -36,8 +37,12 @@ export default async function HomePage() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
             {latest.map((e) => (
               <Link key={e.id} href={episodeHref(e.slug, e)} className="group block">
-                <div className="flex aspect-video items-center justify-center rounded-xl border border-ink-200 bg-ink-100 text-sm text-snow-dim group-hover:border-neon">
-                  {e.number} {t.episode}
+                <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-xl border border-ink-200 bg-ink-100 text-sm font-semibold text-white group-hover:border-neon">
+                  {e.poster_url && (
+                    <Image src={e.poster_url} alt="" fill sizes="(max-width: 640px) 45vw, 180px" className="object-cover" />
+                  )}
+                  <span className="absolute inset-0 bg-black/55" />
+                  <span className="relative">{e.number} {t.episode}</span>
                 </div>
                 <p className="mt-2 line-clamp-1 text-sm font-semibold">{pick(e, "title", locale)}</p>
               </Link>
@@ -58,8 +63,12 @@ export default async function HomePage() {
                 href={episodeHref(title.slug, episode)}
                 className="group block"
               >
-                <div className="flex aspect-video items-center justify-center rounded-xl border border-ink-200 bg-ink-100 text-sm text-snow-dim group-hover:border-neon">
-                  {t.season} {episode.season} · {episode.number} {t.episode}
+                <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-xl border border-ink-200 bg-ink-100 text-sm font-semibold text-white group-hover:border-neon">
+                  {title.poster_url && (
+                    <Image src={title.poster_url} alt="" fill sizes="(max-width: 640px) 45vw, 180px" className="object-cover" />
+                  )}
+                  <span className="absolute inset-0 bg-black/55" />
+                  <span className="relative">{t.season} {episode.season} · {episode.number} {t.episode}</span>
                 </div>
                 <p className="mt-2 line-clamp-1 text-sm font-semibold">{pick(title, "title", locale)}</p>
               </Link>

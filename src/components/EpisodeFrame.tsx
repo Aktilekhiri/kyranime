@@ -126,22 +126,16 @@ export function EpisodeFrame({ embedSrc, src, title, episodeId, startAt, canSave
     };
   }, [embedSrc, startAt]);
 
-  function toggleFullscreen() {
-    const el = wrap.current;
-    if (!el) return;
-    if (document.fullscreenElement) {
-      void document.exitFullscreen();
-      return;
-    }
-    void el.requestFullscreen?.().then(() => {
-      try {
-        void (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.("landscape")?.catch(() => {});
-      } catch {}
-    });
-  }
+  // Стрелки нужны только в полноэкранном режиме
+  const [full, setFull] = useState(false);
+  useEffect(() => {
+    const on = () => setFull(document.fullscreenElement === wrap.current);
+    document.addEventListener("fullscreenchange", on);
+    return () => document.removeEventListener("fullscreenchange", on);
+  }, []);
 
   // Для плеера Bunny прячем кнопки во время просмотра; свой HLS-плеер не сообщает о паузе, там кнопки всегда видны
-  const hidden = embedSrc && playing;
+  const hidden = !full || (embedSrc && playing);
   const round = `absolute z-10 flex size-10 items-center justify-center rounded-full bg-black/55 text-2xl leading-none text-white transition-opacity hover:bg-black/80 ${
     hidden ? "pointer-events-none opacity-0" : "opacity-100"
   }`;
@@ -177,9 +171,6 @@ export function EpisodeFrame({ embedSrc, src, title, episodeId, startAt, canSave
           ›
         </Link>
       )}
-      <button type="button" onClick={toggleFullscreen} aria-label={labels.fullscreen} title={labels.fullscreen} className={`${round} right-2 top-2 text-lg`}>
-        ⛶
-      </button>
 
       {count !== null && count > 0 && nextHref && (
         <div role="status" className="absolute bottom-14 right-3 z-20 flex items-center gap-2 rounded-lg bg-black/85 p-2 pl-3 text-sm text-white">

@@ -412,6 +412,7 @@ export type LatestEpisode = {
   slug: string;
   title_ky: string;
   title_ru: string;
+  poster_url: string | null;
 };
 
 const fetchLatestEpisodes = unstable_cache(
@@ -419,13 +420,13 @@ const fetchLatestEpisodes = unstable_cache(
     const supabase = createPublicClient()!;
     const { data, error } = await supabase
       .from("episodes")
-      .select("id, season, number, dub_id, created_at, titles(slug, title_ky, title_ru)")
+      .select("id, season, number, dub_id, created_at, titles(slug, title_ky, title_ru, poster_url)")
       .eq("published", true)
       .order("created_at", { ascending: false })
       .limit(24);
     if (error) throw error;
-    return (data ?? []) as unknown as (Omit<LatestEpisode, "slug" | "title_ky" | "title_ru"> & {
-      titles: { slug: string; title_ky: string; title_ru: string } | { slug: string; title_ky: string; title_ru: string }[] | null;
+    return (data ?? []) as unknown as (Omit<LatestEpisode, "slug" | "title_ky" | "title_ru" | "poster_url"> & {
+      titles: { slug: string; title_ky: string; title_ru: string; poster_url: string | null } | { slug: string; title_ky: string; title_ru: string; poster_url: string | null }[] | null;
     })[];
   },
   ["latest-episodes"],
