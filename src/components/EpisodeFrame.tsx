@@ -33,6 +33,8 @@ export function EpisodeFrame({ embedSrc, src, title, episodeId, startAt, canSave
   const frame = useRef<HTMLIFrameElement>(null);
   const dismissed = useRef(false);
   const [count, setCount] = useState<number | null>(null);
+  // Пока серия идёт, кнопки спрятаны; на паузе (нажали на видео) появляются
+  const [playing, setPlaying] = useState(false);
 
   const start = () => {
     if (!nextHref || dismissed.current) return;
@@ -83,6 +85,8 @@ export function EpisodeFrame({ embedSrc, src, title, episodeId, startAt, canSave
     const subscribe = () => {
       send("timeupdate");
       send("ended");
+      send("play");
+      send("pause");
     };
     const onMessage = (e: MessageEvent) => {
       if (e.source !== frame.current?.contentWindow) return;
@@ -106,7 +110,12 @@ export function EpisodeFrame({ embedSrc, src, title, episodeId, startAt, canSave
         }
       }
       else if (d.event === "timeupdate" && d.value) handlers.current.onPlayback(Number(d.value.seconds), Number(d.value.duration));
-      else if (d.event === "ended") handlers.current.start();
+      else if (d.event === "play") setPlaying(true);
+      else if (d.event === "pause") setPlaying(false);
+      else if (d.event === "ended") {
+        setPlaying(false);
+        handlers.current.start();
+      }
     };
     window.addEventListener("message", onMessage);
     const el = frame.current;
@@ -131,12 +140,16 @@ export function EpisodeFrame({ embedSrc, src, title, episodeId, startAt, canSave
     });
   }
 
-  const round = "absolute z-10 flex size-10 items-center justify-center rounded-full bg-black/55 text-2xl leading-none text-white hover:bg-black/80";
+  // Для плеера Bunny прячем кнопки во время просмотра; свой HLS-плеер не сообщает о паузе, там кнопки всегда видны
+  const hidden = embedSrc && playing;
+  const round = `absolute z-10 flex size-10 items-center justify-center rounded-full bg-black/55 text-2xl leading-none text-white transition-opacity hover:bg-black/80 ${
+    hidden ? "pointer-events-none opacity-0" : "opacity-100"
+  }`;
 
   return (
     <div
       ref={wrap}
-      className="relative w-full overflow-hidden rounded-xl bg-black [&:fullscreen]:flex [&:fullscreen]:items-center [&:fullscreen]:rounded-none"
+      className="relative w-full overflow-hidden rounded-xl bg-black [&:fullscreen]:bg-black [&:fullscreen]:flex [&:fullscreen]:items-center [&:fullscreen]:rounded-none"
       style={embedSrc ? { aspectRatio: aspect } : undefined}
     >
       {embedSrc ? (
@@ -147,7 +160,8 @@ export function EpisodeFrame({ embedSrc, src, title, episodeId, startAt, canSave
           loading="lazy"
           allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen"
           allowFullScreen
-          className="absolute inset-0 size-full border-0"
+          className="absolute inset-0 size-full border-0 bg-black"
+          style={{ colorScheme: "dark" }}
         />
       ) : (
         <Player src={src} episodeId={episodeId} startAt={startAt} canSave={canSave} aspect={aspect} onTime={onPlayback} onEnded={start} />
