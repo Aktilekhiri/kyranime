@@ -6,6 +6,7 @@ import { EpisodeFrame } from "@/components/EpisodeFrame";
 import {
   countCommentsByUsers,
   getProgress,
+  markEpisodeOpened,
   getTitleBySlug,
   listComments,
   listDubs,
@@ -110,6 +111,7 @@ export default async function WatchPage({
       user?.id,
     ),
   ]);
+  if (user) await markEpisodeOpened(user.id, episode.id, startAt);
   const commentCounts = await countCommentsByUsers([...new Set(comments.map((c) => c.user_id))]);
 
   return (

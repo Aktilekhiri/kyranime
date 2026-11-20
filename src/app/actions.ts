@@ -368,11 +368,12 @@ export async function setListStatus(formData: FormData) {
 
   if (status === "none") {
     await supabase.from("title_lists").delete().eq("user_id", user.id).eq("title_id", titleId);
-  } else if (["watching", "planned", "completed"].includes(status)) {
+  } else if (["watching", "planned", "completed", "on_hold", "dropped"].includes(status)) {
     await supabase.from("title_lists").upsert({ user_id: user.id, title_id: titleId, status });
   }
   revalidatePath(`/anime/${slug}`);
   revalidatePath("/profile");
+  revalidatePath("/list");
 }
 
 export async function saveProgress(episodeId: string, positionSec: number) {

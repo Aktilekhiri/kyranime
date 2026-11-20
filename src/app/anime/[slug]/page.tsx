@@ -228,6 +228,8 @@ export default async function AnimePage({
                   <option value="watching">{t.listWatching}</option>
                   <option value="planned">{t.listPlanned}</option>
                   <option value="completed">{t.listCompleted}</option>
+                  <option value="on_hold">{t.listOnHold}</option>
+                  <option value="dropped">{t.listDropped}</option>
                 </select>
                 <button type="submit" className="btn-ghost">{t.save}</button>
               </form>

@@ -495,7 +495,8 @@ export async function countCommentsByUsers(ids: string[]): Promise<Record<string
   return counts;
 }
 
-export type ListStatus = "watching" | "planned" | "completed";
+export type ListStatus = "watching" | "planned" | "completed" | "on_hold" | "dropped";
+export const LIST_STATUSES: ListStatus[] = ["watching", "planned", "completed", "on_hold", "dropped"];
 
 /** Статус тайтла в личном списке (null, если не в списке или SQL из supabase/lists.sql ещё не выполнен). */
 export async function getListStatus(userId: string, titleId: string): Promise<ListStatus | null> {
@@ -512,7 +513,7 @@ export async function getListStatus(userId: string, titleId: string): Promise<Li
 }
 
 export async function listMyLists(userId: string): Promise<Record<ListStatus, Title[]>> {
-  const out: Record<ListStatus, Title[]> = { watching: [], planned: [], completed: [] };
+  const out: Record<ListStatus, Title[]> = { watching: [], planned: [], completed: [], on_hold: [], dropped: [] };
   const supabase = await createClient();
   if (!supabase) return out;
   const { data, error } = await supabase
@@ -557,4 +558,37 @@ export async function listEpisodeStats(): Promise<Map<string, { count: number; l
     }
   } catch {}
   return map;
+}
+
+export type HistoryItem = { title: Title; episode: Episode; at: string };
+
+/** История просмотра: серии, которые пользователь открывал, свежие сверху. */
+export async function listHistory(userId: string, limit = 60): Promise<HistoryItem[]> {
+  const supabase = await createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("watch_progress")
+    .select("updated_at, episodes(*, titles(*))")
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  const out: HistoryItem[] = [];
+  for (const row of data ?? []) {
+    const ep = row.episodes as unknown as (Episode & { titles: Title | Title[] | null }) | null;
+    const title = ep && (Array.isArray(ep.titles) ? ep.titles[0] : ep.titles);
+    if (ep && title) out.push({ title, episode: ep, at: row.updated_at });
+  }
+  return out;
+}
+
+/** Отмечает открытие серии в истории, не сбрасывая сохранённое место просмотра. */
+export async function markEpisodeOpened(userId: string, episodeId: string, positionSec: number) {
+  const supabase = await createClient();
+  if (!supabase) return;
+  await supabase.from("watch_progress").upsert({
+    user_id: userId,
+    episode_id: episodeId,
+    position_sec: positionSec,
+    updated_at: new Date().toISOString(),
+  });
 }
