@@ -1,19 +1,21 @@
 import { episodeHref } from "@/lib/dubs";
 import Image from "next/image";
 import Link from "next/link";
-import { AnimeCard } from "@/components/AnimeCard";
 import { TelegramBanner } from "@/components/TelegramBanner";
 import { QuickLinks } from "@/components/QuickLinks";
-import { listContinueWatching, listLatestEpisodes, listTitles } from "@/lib/data";
+import { HomeTabs, TABS, type Tab } from "@/components/HomeTabs";
+import { listContinueWatching, listEpisodeStats, listLatestEpisodes, listRatings, listTitles } from "@/lib/data";
 import { getDict, getLocale, pick } from "@/lib/i18n";
 import { getViewer } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const { tab: tabRaw } = await searchParams;
+  const tab = (TABS as readonly string[]).includes(tabRaw ?? "") ? (tabRaw as Tab) : "latest";
   const locale = await getLocale();
   const t = getDict(locale);
-  const [titles, user, latest] = await Promise.all([listTitles(), getViewer(), listLatestEpisodes(6)]);
+  const [titles, user, latest, stats, ratings] = await Promise.all([listTitles(), getViewer(), listLatestEpisodes(6), listEpisodeStats(), listRatings()]);
   const resume = user ? await listContinueWatching(user.id) : [];
 
   return (
@@ -77,14 +79,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      <section>
-        <h2 className="mb-4 text-xl font-bold">{t.popular}</h2>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-          {titles.map((title) => (
-            <AnimeCard key={title.id} title={title} locale={locale} />
-          ))}
-        </div>
-      </section>
+      <HomeTabs titles={titles} stats={stats} ratings={ratings} tab={tab} locale={locale} />
     </div>
   );
 }

@@ -528,3 +528,33 @@ export async function listMyLists(userId: string): Promise<Record<ListStatus, Ti
   }
   return out;
 }
+
+const fetchEpisodeStats = unstable_cache(
+  async () => {
+    const supabase = createPublicClient()!;
+    const { data, error } = await supabase
+      .from("episodes")
+      .select("title_id, created_at")
+      .eq("published", true)
+      .order("created_at", { ascending: false })
+      .limit(5000);
+    if (error) throw error;
+    return (data ?? []) as { title_id: string; created_at: string }[];
+  },
+  ["episode-stats"],
+  CATALOG,
+);
+
+/** По тайтлам: сколько опубликовано серий (без повторов озвучек не считаем, берём все записи) и когда добавлена последняя. */
+export async function listEpisodeStats(): Promise<Map<string, { count: number; last: string }>> {
+  const map = new Map<string, { count: number; last: string }>();
+  if (!isSupabaseConfigured()) return map;
+  try {
+    for (const r of await fetchEpisodeStats()) {
+      const cur = map.get(r.title_id);
+      if (cur) cur.count += 1;
+      else map.set(r.title_id, { count: 1, last: r.created_at });
+    }
+  } catch {}
+  return map;
+}
