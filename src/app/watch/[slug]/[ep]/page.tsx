@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Comments } from "@/components/Comments";
 import { EpisodeFrame } from "@/components/EpisodeFrame";
 import {
+  countCommentsByUsers,
   getProgress,
   getTitleBySlug,
   listComments,
@@ -48,10 +49,11 @@ export default async function WatchPage({
   searchParams,
 }: {
   params: Params;
-  searchParams: Promise<{ dub?: string }>;
+  searchParams: Promise<{ dub?: string; csort?: string }>;
 }) {
   const { slug, ep } = await params;
-  const { dub: wantedDub } = await searchParams;
+  const { dub: wantedDub, csort: csortRaw } = await searchParams;
+  const csort = csortRaw === "old" || csortRaw === "top" ? csortRaw : "new";
   const parsed = parseEp(ep);
   const title = await getTitleBySlug(slug);
   if (!title || !parsed) notFound();
@@ -108,6 +110,7 @@ export default async function WatchPage({
       user?.id,
     ),
   ]);
+  const commentCounts = await countCommentsByUsers([...new Set(comments.map((c) => c.user_id))]);
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
@@ -219,6 +222,9 @@ export default async function WatchPage({
           viewerId={user?.id ?? null}
           isAdmin={isAdminEmail(user?.email)}
           t={t}
+          counts={commentCounts}
+          csort={csort}
+          basePath={`/watch/${title.slug}/${ep}${wantedDub ? `?dub=${encodeURIComponent(wantedDub)}` : ""}`}
         />
       </aside>
     </div>

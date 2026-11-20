@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Avatar } from "@/components/Avatar";
 import { addComment, deleteComment, toggleReaction, updateComment } from "@/app/actions";
+import { CommentBody } from "@/components/CommentBody";
 import type { Dict } from "@/lib/i18n";
+import { rankLabel } from "@/lib/ranks";
 import { REACTIONS } from "@/lib/social";
 import type { Comment } from "@/lib/types";
 
@@ -15,6 +17,11 @@ type Props = {
   viewerId: string | null;
   isAdmin: boolean;
   t: Dict;
+  /** Сколько комментариев у каждого автора (для званий) */
+  counts?: Record<string, number>;
+  /** Текущая сортировка и адрес страницы для ссылок сортировки */
+  csort?: "new" | "old" | "top";
+  basePath?: string;
 };
 
 function formatDate(iso: string): string {
@@ -23,9 +30,18 @@ function formatDate(iso: string): string {
 
 const SUMMARY = "cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden";
 
-export function Comments({ heading, comments, titleId, slug, episode, viewerId, isAdmin, t }: Props) {
+export function Comments({ heading, comments, titleId, slug, episode, viewerId, isAdmin, t, counts, csort = "new", basePath }: Props) {
   const byId = new Map(comments.map((c) => [c.id, c]));
-  const roots = comments.filter((c) => !c.parent_id || !byId.has(c.parent_id));
+  const score = (c: Comment) => c.reactions.reduce((n, r) => n + r.count, 0);
+  const roots = comments
+    .filter((c) => !c.parent_id || !byId.has(c.parent_id))
+    .sort((a, b) =>
+      csort === "old"
+        ? a.created_at.localeCompare(b.created_at)
+        : csort === "top"
+          ? score(b) - score(a) || b.created_at.localeCompare(a.created_at)
+          : b.created_at.localeCompare(a.created_at),
+    );
   const repliesOf = (id: string) =>
     comments.filter((c) => c.parent_id === id).sort((a, b) => a.created_at.localeCompare(b.created_at));
 
@@ -39,6 +55,11 @@ export function Comments({ heading, comments, titleId, slug, episode, viewerId, 
             <Link href={`/u/${encodeURIComponent(c.username)}`} className="truncate hover:underline">
               {c.username}
             </Link>
+            {counts && (
+              <span className="shrink-0 rounded-md border border-ink-300 px-1.5 py-0.5 text-[10px] font-medium text-snow-dim">
+                {rankLabel(counts[c.user_id] ?? 0, t)}
+              </span>
+            )}
           </span>
           <span className="text-xs text-snow-dim">
             {formatDate(c.created_at)}
@@ -50,7 +71,9 @@ export function Comments({ heading, comments, titleId, slug, episode, viewerId, 
             ↩ {target.username}: {target.body}
           </p>
         )}
-        <p className="mt-2 whitespace-pre-line break-words text-sm text-snow/90">{c.body}</p>
+        <p className="mt-2 whitespace-pre-line break-words text-sm text-snow/90">
+          <CommentBody text={c.body} label={t.spoilerShow} />
+        </p>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {c.reactions.map((r) =>
@@ -188,7 +211,7 @@ export function Comments({ heading, comments, titleId, slug, episode, viewerId, 
             </>
           )}
           <label htmlFor={fieldId} className="label">
-            {t.writeReview}
+            {t.writeReview} <span className="font-normal text-snow-dim">· {t.spoilerHint}</span>
           </label>
           <textarea
             id={fieldId}
@@ -209,6 +232,21 @@ export function Comments({ heading, comments, titleId, slug, episode, viewerId, 
             {t.loginToReview}
           </Link>
         </p>
+      )}
+
+      {basePath && comments.length > 1 && (
+        <div className="flex gap-2 text-xs">
+          {(["new", "old", "top"] as const).map((k) => (
+            <Link
+              key={k}
+              href={`${basePath}${basePath.includes("?") ? "&" : "?"}csort=${k}`}
+              scroll={false}
+              className={`rounded-full border px-3 py-1 ${csort === k ? "border-neon bg-neon text-ink" : "border-ink-300 text-snow-dim hover:text-snow"}`}
+            >
+              {k === "new" ? t.csortNew : k === "old" ? t.csortOld : t.csortTop}
+            </Link>
+          ))}
+        </div>
       )}
 
       {roots.length === 0 ? (

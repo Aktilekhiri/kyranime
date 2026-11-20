@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Avatar } from "@/components/Avatar";
 import { getPublicProfile, listMyComments } from "@/lib/data";
 import { getDict, getLocale, pick } from "@/lib/i18n";
+import { rankLabel } from "@/lib/ranks";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,9 @@ export default async function PublicProfilePage({ params }: Params) {
         <div className="min-w-0">
           <h1 className="truncate text-2xl font-bold">{profile.username}</h1>
           <p className="text-sm text-snow-dim">
+            <span className="mr-2 rounded-md border border-neon px-2 py-0.5 text-xs font-semibold text-neon">
+              {rankLabel(comments.length, t)}
+            </span>
             {t.registered}: {new Date(profile.created_at).toLocaleDateString("ru-RU", { timeZone: "Asia/Bishkek" })}
           </p>
         </div>

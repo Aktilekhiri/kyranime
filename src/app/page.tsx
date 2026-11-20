@@ -2,7 +2,8 @@ import { episodeHref } from "@/lib/dubs";
 import Link from "next/link";
 import { AnimeCard } from "@/components/AnimeCard";
 import { TelegramBanner } from "@/components/TelegramBanner";
-import { listContinueWatching, listTitles } from "@/lib/data";
+import { QuickLinks } from "@/components/QuickLinks";
+import { listContinueWatching, listLatestEpisodes, listTitles } from "@/lib/data";
 import { getDict, getLocale, pick } from "@/lib/i18n";
 import { getViewer } from "@/lib/supabase/server";
 
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   const locale = await getLocale();
   const t = getDict(locale);
-  const [titles, user] = await Promise.all([listTitles(), getViewer()]);
+  const [titles, user, latest] = await Promise.all([listTitles(), getViewer(), listLatestEpisodes(6)]);
   const resume = user ? await listContinueWatching(user.id) : [];
 
   return (
@@ -26,6 +27,24 @@ export default async function HomePage() {
           </Link>
         )}
       </section>
+
+      <QuickLinks t={t} />
+
+      {latest.length > 0 && (
+        <section>
+          <h2 className="mb-4 text-xl font-bold">{t.latestEpisodes}</h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            {latest.map((e) => (
+              <Link key={e.id} href={episodeHref(e.slug, e)} className="group block">
+                <div className="flex aspect-video items-center justify-center rounded-xl border border-ink-200 bg-ink-100 text-sm text-snow-dim group-hover:border-neon">
+                  {e.number} {t.episode}
+                </div>
+                <p className="mt-2 line-clamp-1 text-sm font-semibold">{pick(e, "title", locale)}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <TelegramBanner />
 

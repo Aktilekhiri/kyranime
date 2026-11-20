@@ -378,3 +378,118 @@ export async function getPublicProfile(username: string): Promise<{ id: string; 
     .maybeSingle();
   return data ?? null;
 }
+
+// ───────── Рейтинги, новые серии, озвучки, пользователи (для Топа, Расписания, каталога) ─────────
+
+export type RatingMap = Map<string, { avg: number; count: number }>;
+
+const fetchRatings = unstable_cache(
+  async () => {
+    const supabase = createPublicClient()!;
+    const { data, error } = await supabase.from("title_ratings").select("title_id, avg_rating, reviews_count");
+    if (error) throw error;
+    return (data ?? []) as { title_id: string; avg_rating: number; reviews_count: number }[];
+  },
+  ["ratings"],
+  CATALOG,
+);
+
+export async function listRatings(): Promise<RatingMap> {
+  const map: RatingMap = new Map();
+  if (!isSupabaseConfigured()) return map;
+  try {
+    for (const r of await fetchRatings()) map.set(r.title_id, { avg: Number(r.avg_rating), count: Number(r.reviews_count) });
+  } catch {}
+  return map;
+}
+
+export type LatestEpisode = {
+  id: string;
+  season: number;
+  number: number;
+  dub_id: string | null;
+  created_at: string;
+  slug: string;
+  title_ky: string;
+  title_ru: string;
+};
+
+const fetchLatestEpisodes = unstable_cache(
+  async () => {
+    const supabase = createPublicClient()!;
+    const { data, error } = await supabase
+      .from("episodes")
+      .select("id, season, number, dub_id, created_at, titles(slug, title_ky, title_ru)")
+      .eq("published", true)
+      .order("created_at", { ascending: false })
+      .limit(24);
+    if (error) throw error;
+    return (data ?? []) as unknown as (Omit<LatestEpisode, "slug" | "title_ky" | "title_ru"> & {
+      titles: { slug: string; title_ky: string; title_ru: string } | { slug: string; title_ky: string; title_ru: string }[] | null;
+    })[];
+  },
+  ["latest-episodes"],
+  CATALOG,
+);
+
+/** Недавно добавленные серии (по одной на тайтл, скрытые тайтлы не попадают). */
+export async function listLatestEpisodes(limit = 8): Promise<LatestEpisode[]> {
+  if (!isSupabaseConfigured()) return [];
+  try {
+    const rows = await fetchLatestEpisodes();
+    const seen = new Set<string>();
+    const out: LatestEpisode[] = [];
+    for (const r of rows) {
+      const t = Array.isArray(r.titles) ? r.titles[0] : r.titles;
+      if (!t || seen.has(t.slug)) continue;
+      seen.add(t.slug);
+      out.push({ id: r.id, season: r.season, number: r.number, dub_id: r.dub_id, created_at: r.created_at, ...t });
+      if (out.length >= limit) break;
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+const fetchAllDubs = unstable_cache(
+  async () => {
+    const supabase = createPublicClient()!;
+    const { data, error } = await supabase.from("dubs").select("title_id, studio_name").eq("published", true);
+    if (error) throw error;
+    return (data ?? []) as { title_id: string; studio_name: string }[];
+  },
+  ["all-dubs"],
+  CATALOG,
+);
+
+/** Озвучки всех тайтлов: нужны для фильтра каталога. */
+export async function listAllDubs(): Promise<{ title_id: string; studio_name: string }[]> {
+  if (!isSupabaseConfigured()) return [];
+  try {
+    return await fetchAllDubs();
+  } catch {
+    return [];
+  }
+}
+
+export async function listUsers(limit = 200): Promise<{ id: string; username: string; avatar_url: string | null; created_at: string }[]> {
+  const supabase = await createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, username, avatar_url, created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return data ?? [];
+}
+
+/** Сколько комментариев написал каждый из этих людей (для званий). */
+export async function countCommentsByUsers(ids: string[]): Promise<Record<string, number>> {
+  const supabase = await createClient();
+  const counts: Record<string, number> = {};
+  if (!supabase || ids.length === 0) return counts;
+  const { data } = await supabase.from("comments").select("user_id").in("user_id", ids).limit(10000);
+  for (const r of data ?? []) counts[r.user_id] = (counts[r.user_id] ?? 0) + 1;
+  return counts;
+}

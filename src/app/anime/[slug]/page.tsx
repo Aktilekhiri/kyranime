@@ -4,8 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { submitReview, toggleFavorite } from "@/app/actions";
+import { AnimeCard } from "@/components/AnimeCard";
 import { Comments } from "@/components/Comments";
+import { ShareButton } from "@/components/ShareButton";
 import {
+  countCommentsByUsers,
   getMyRating,
   getRating,
   getTitleBySlug,
@@ -13,9 +16,11 @@ import {
   listComments,
   listDubs,
   listEpisodes,
+  listTitles,
 } from "@/lib/data";
 import { episodeHref, resolveDubs } from "@/lib/dubs";
 import { formatReleaseDays, getDict, getLocale, pick } from "@/lib/i18n";
+import { daysUntilRelease } from "@/lib/ranks";
 import { SITE_URL } from "@/lib/site";
 import { getViewer, isAdminEmail } from "@/lib/supabase/server";
 
@@ -56,10 +61,11 @@ export default async function AnimePage({
   searchParams,
 }: {
   params: Params;
-  searchParams: Promise<{ dub?: string }>;
+  searchParams: Promise<{ dub?: string; csort?: string }>;
 }) {
   const { slug } = await params;
-  const { dub: wantedDub } = await searchParams;
+  const { dub: wantedDub, csort: csortRaw } = await searchParams;
+  const csort = csortRaw === "old" || csortRaw === "top" ? csortRaw : "new";
   const title = await getTitleBySlug(slug);
   if (!title) notFound();
 
@@ -83,6 +89,17 @@ export default async function AnimePage({
     episodes,
   } = resolveDubs(dubList, allEpisodes, wantedDub);
   const name = pick(title, "title", locale);
+  const commentCounts = await countCommentsByUsers([...new Set(comments.map((c) => c.user_id))]);
+  // «Похожие»: тайтлы с теми же жанрами, больше совпадений — выше
+  const myKeys = new Set(title.genres.map(genreKey));
+  const similar = (await listTitles())
+    .filter((x) => x.id !== title.id)
+    .map((x) => ({ x, n: x.genres.filter((g) => myKeys.has(genreKey(g))).length }))
+    .filter((r) => r.n > 0)
+    .sort((a, b) => b.n - a.n)
+    .slice(0, 6)
+    .map((r) => r.x);
+  const daysLeft = title.status === "ongoing" ? daysUntilRelease(title.release_days) : null;
   const first = episodes[0];
   const isAdmin = isAdminEmail(user?.email);
 
@@ -168,6 +185,11 @@ export default async function AnimePage({
               <span className="font-semibold text-neon">
                 {formatReleaseDays(title.release_days, locale)}
               </span>
+              {daysLeft !== null && (
+                <span className="ml-2 text-snow-dim">
+                  · {t.nextRelease}: {daysLeft === 0 ? t.today : t.inDays.replace("{n}", String(daysLeft))}
+                </span>
+              )}
             </p>
           )}
           {!currentDub && title.dubbed_by && (
@@ -194,6 +216,7 @@ export default async function AnimePage({
                 {favorite ? `✓ ${t.removeFavorite}` : `+ ${t.addFavorite}`}
               </button>
             </form>
+            <ShareButton title={name} label={t.share} copied={t.linkCopied} />
           </div>
         </div>
       </section>
@@ -338,9 +361,23 @@ export default async function AnimePage({
             viewerId={user?.id ?? null}
             isAdmin={isAdmin}
             t={t}
+            counts={commentCounts}
+            csort={csort}
+            basePath={`/anime/${title.slug}${wantedDub ? `?dub=${encodeURIComponent(wantedDub)}` : ""}`}
           />
         </aside>
       </div>
+
+      {similar.length > 0 && (
+        <section>
+          <h2 className="mb-4 text-xl font-bold">{t.similar}</h2>
+          <div className="grid grid-cols-3 gap-4 lg:grid-cols-6">
+            {similar.map((x) => (
+              <AnimeCard key={x.id} title={x} locale={locale} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
