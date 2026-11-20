@@ -108,6 +108,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               <option value="completed">Завершено</option>
             </select>
           </div>
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" name="notify" defaultChecked className="size-5" />
+            Опубликовать в Telegram-канале
+          </label>
           <div className="flex items-end">
             <button type="submit" className="btn-primary">
               Добавить тайтл
@@ -146,6 +150,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <AdminField label="Название серии (русский)" name="name_ru" />
           <AdminField label="Длительность, минут" name="duration_min" type="number" placeholder="24" />
           <AspectField />
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" name="notify" defaultChecked className="size-5" />
+            Опубликовать в Telegram-канале
+          </label>
           <div className="flex items-end">
             <button type="submit" className="btn-primary">
               Добавить серию

@@ -7,6 +7,7 @@ import type { ChatMessage } from "@/lib/types";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDict, getLocale } from "@/lib/i18n";
+import { announceNewEpisode, announceNewTitle } from "@/lib/telegram";
 import { THEMES, type Theme } from "@/lib/theme";
 import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
 
@@ -419,12 +420,13 @@ export async function addTitle(formData: FormData) {
     release_days: parseReleaseDays(formData),
     status: formData.get("status") === "completed" ? "completed" : "ongoing",
     dubbed_by: dubbedBy || null,
-  }).select("id").single();
+  }).select("id, slug, title_ky, title_ru, poster_url, description_ky, genres").single();
   if (error) redirect("/admin?error=title");
   // Если указана команда озвучки, сразу создаём для неё раздел (ошибку игнорируем: добавишь вручную)
   if (dubbedBy && created) {
     await supabase.from("dubs").insert({ title_id: created.id, studio_name: dubbedBy });
   }
+  if (created && formData.get("notify") === "on") await announceNewTitle(created);
   revalidateTag("catalog");
   revalidatePath("/");
   revalidatePath("/admin");
@@ -456,7 +458,7 @@ export async function addEpisode(formData: FormData) {
   const minutes = Number(formData.get("duration_min"));
 
   if (!hlsUrl.startsWith("https://")) redirect("/admin?error=url");
-  const { data: dub } = await supabase.from("dubs").select("title_id").eq("id", dubId).maybeSingle();
+  const { data: dub } = await supabase.from("dubs").select("title_id, studio_name").eq("id", dubId).maybeSingle();
   if (!dub) redirect("/admin?error=nodub");
   const titleId = dub.title_id as string;
 
@@ -474,6 +476,15 @@ export async function addEpisode(formData: FormData) {
   // Если колонки aspect ещё нет (SQL не выполнен), добавляем без неё
   if (error) ({ error } = await supabase.from("episodes").insert(row));
   if (error) redirect("/admin?error=episode");
+
+  if (formData.get("notify") === "on") {
+    const { data: t } = await supabase
+      .from("titles")
+      .select("slug, title_ky, title_ru, poster_url")
+      .eq("id", titleId)
+      .maybeSingle();
+    if (t) await announceNewEpisode(t, { season: row.season, number: row.number, dub_id: dubId }, (dub.studio_name as string) ?? null);
+  }
 
   revalidateCatalogPages();
   redirect(`/admin/title/${titleId}`);
