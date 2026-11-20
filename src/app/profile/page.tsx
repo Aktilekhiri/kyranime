@@ -5,6 +5,9 @@ import { redirect } from "next/navigation";
 import { deleteComment, signOut, updateComment, updateUsername } from "@/app/actions";
 import { AvatarUploader } from "@/components/AvatarUploader";
 import { AnimeCard } from "@/components/AnimeCard";
+import { setTelegramNotify, unlinkTelegram } from "@/app/actions";
+import { TelegramLinkButton } from "@/components/TelegramLinkButton";
+import { telegramAuthConfigured } from "@/lib/supabase/admin";
 import { listContinueWatching, listFavorites, listMyComments, listMyLists } from "@/lib/data";
 import { getDict, getLocale, pick } from "@/lib/i18n";
 import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
@@ -23,6 +26,7 @@ export default async function ProfilePage() {
   const supabase = await createClient();
   const { data: profile } = await supabase!.from("profiles").select("username, avatar_url").eq("id", user.id).maybeSingle();
 
+  const { data: tg } = await supabase!.from("telegram_links").select("username, notify").eq("user_id", user.id).maybeSingle();
   const [favorites, resume, myComments, lists] = await Promise.all([
     listFavorites(user.id),
     listContinueWatching(user.id),
@@ -155,6 +159,31 @@ export default async function ProfilePage() {
           </ul>
         )}
       </section>
+
+      {telegramAuthConfigured() && (
+        <section className="card space-y-3 p-5">
+          <h2 className="text-xl font-bold">{t.tgSettings}</h2>
+          {tg ? (
+            <div className="space-y-3">
+              <p className="text-sm">
+                <span className="font-semibold text-neon">✓ {t.tgConnected}</span>
+                {tg.username ? ` · @${tg.username}` : ""} · {tg.notify ? t.tgNotifyOn : t.tgNotifyOff}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <form action={setTelegramNotify}>
+                  <input type="hidden" name="on" value={tg.notify ? "0" : "1"} />
+                  <button type="submit" className="btn-ghost">{tg.notify ? t.tgTurnOff : t.tgTurnOn}</button>
+                </form>
+                <form action={unlinkTelegram}>
+                  <button type="submit" className="btn-ghost">{t.tgUnlink}</button>
+                </form>
+              </div>
+            </div>
+          ) : (
+            <TelegramLinkButton label={t.tgLinkBtn} hint={t.tgLinkHint} />
+          )}
+        </section>
+      )}
 
       {(
         [

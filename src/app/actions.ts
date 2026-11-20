@@ -7,7 +7,9 @@ import type { ChatMessage } from "@/lib/types";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDict, getLocale } from "@/lib/i18n";
-import { announceNewEpisode, announceNewTitle } from "@/lib/telegram";
+import { randomBytes } from "node:crypto";
+import { createAdminClient, telegramAuthConfigured } from "@/lib/supabase/admin";
+import { announceNewEpisode, announceNewTitle, notifySubscribers } from "@/lib/telegram";
 import { THEMES, type Theme } from "@/lib/theme";
 import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
 
@@ -483,7 +485,12 @@ export async function addEpisode(formData: FormData) {
       .select("slug, title_ky, title_ru, poster_url")
       .eq("id", titleId)
       .maybeSingle();
-    if (t) await announceNewEpisode(t, { season: row.season, number: row.number, dub_id: dubId }, (dub.studio_name as string) ?? null);
+    if (t) {
+      const ep = { season: row.season, number: row.number, dub_id: dubId };
+      const dubName = (dub.studio_name as string) ?? null;
+      await announceNewEpisode(t, ep, dubName);
+      await notifySubscribers(titleId, t, ep, dubName);
+    }
   }
 
   revalidateCatalogPages();
@@ -781,4 +788,91 @@ export async function getProfilesByIds(ids: string[]): Promise<{ id: string; use
   if (clean.length === 0) return [];
   const { data } = await supabase.from("profiles").select("id, username, avatar_url").in("id", clean);
   return data ?? [];
+}
+
+// ───────── Telegram: вход, привязка, уведомления ─────────
+
+const BOT = process.env.TELEGRAM_BOT_USERNAME || "kyranime_bot";
+
+async function newToken(kind: "login" | "link", userId: string | null): Promise<{ token: string; url: string } | null> {
+  const admin = createAdminClient();
+  if (!admin || !telegramAuthConfigured()) return null;
+  const token = randomBytes(18).toString("hex");
+  // Заодно чистим старые коды
+  await admin.from("telegram_tokens").delete().lt("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString());
+  const { error } = await admin.from("telegram_tokens").insert({ token, kind, user_id: userId });
+  if (error) return null;
+  return { token, url: `https://t.me/${BOT}?start=${kind}_${token}` };
+}
+
+export async function startTelegramLogin(): Promise<{ token: string; url: string } | null> {
+  return newToken("login", null);
+}
+
+export async function startTelegramLink(): Promise<{ url: string } | null> {
+  const user = await getUser();
+  if (!user) return null;
+  const t = await newToken("link", user.id);
+  return t ? { url: t.url } : null;
+}
+
+/** Опрашивается страницей входа: когда человек нажал Start в боте, создаём/находим аккаунт и входим. */
+export async function checkTelegramLogin(token: string): Promise<"pending" | "ok" | "error"> {
+  const admin = createAdminClient();
+  const supabase = await createClient();
+  if (!admin || !supabase || !/^[a-f0-9]{36}$/.test(token)) return "error";
+  const { data: row } = await admin
+    .from("telegram_tokens")
+    .select("token, kind, chat_id, tg_username, created_at")
+    .eq("token", token)
+    .maybeSingle();
+  if (!row || row.kind !== "login" || Date.now() - new Date(row.created_at).getTime() > 10 * 60 * 1000) return "error";
+  if (!row.chat_id) return "pending";
+
+  // Код одноразовый: удаляем сразу, повторно им войти нельзя
+  const { data: gone } = await admin.from("telegram_tokens").delete().eq("token", token).select("token");
+  if (!gone || gone.length === 0) return "error";
+
+  const chatId = Number(row.chat_id);
+  const email = `tg${chatId}@telegram.kyranime.com`;
+  const { data: link } = await admin.from("telegram_links").select("user_id").eq("chat_id", chatId).maybeSingle();
+
+  let loginEmail = email;
+  if (link) {
+    const { data: u } = await admin.auth.admin.getUserById(link.user_id);
+    if (u.user?.email) loginEmail = u.user.email;
+  } else {
+    const { data: created, error } = await admin.auth.admin.createUser({ email, email_confirm: true });
+    if (error && !/already|registered|exists/i.test(error.message)) return "error";
+    const uid = created?.user?.id;
+    if (uid) {
+      await admin.from("telegram_links").upsert({ user_id: uid, chat_id: chatId, username: row.tg_username }, { onConflict: "user_id" });
+      // Ник как в Telegram, если он подходит и свободен; иначе остаётся автоматический
+      const nick = row.tg_username ?? "";
+      if (/^[A-Za-z0-9_.-]{3,24}$/.test(nick)) await admin.from("profiles").update({ username: nick }).eq("id", uid);
+    }
+  }
+
+  const { data: gen, error: genErr } = await admin.auth.admin.generateLink({ type: "magiclink", email: loginEmail });
+  const hash = gen?.properties?.hashed_token;
+  if (genErr || !hash) return "error";
+  const { error: verr } = await supabase.auth.verifyOtp({ type: "magiclink", token_hash: hash });
+  return verr ? "error" : "ok";
+}
+
+export async function unlinkTelegram() {
+  const supabase = await createClient();
+  const user = await getUser();
+  const admin = createAdminClient();
+  if (!supabase || !user || !admin) return;
+  await admin.from("telegram_links").delete().eq("user_id", user.id);
+  revalidatePath("/profile");
+}
+
+export async function setTelegramNotify(formData: FormData) {
+  const user = await getUser();
+  const admin = createAdminClient();
+  if (!user || !admin) return;
+  await admin.from("telegram_links").update({ notify: formData.get("on") === "1" }).eq("user_id", user.id);
+  revalidatePath("/profile");
 }

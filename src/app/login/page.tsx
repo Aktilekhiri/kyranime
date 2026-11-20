@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthForm } from "@/components/AuthForm";
+import { TelegramLogin } from "@/components/TelegramLogin";
 import { getDict, getLocale } from "@/lib/i18n";
+import { telegramAuthConfigured } from "@/lib/supabase/admin";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: getDict(await getLocale()).login };
@@ -24,6 +26,12 @@ export default async function LoginPage({
         next={next}
         labels={{ email: t.email, password: t.password, login: t.login, register: t.register }}
       />
+      {telegramAuthConfigured() && (
+        <TelegramLogin
+          next={next}
+          labels={{ button: t.tgLoginBtn, waiting: t.tgWaiting, failed: t.tgFailed, open: t.tgOpenBot, or: t.tgOr }}
+        />
+      )}
       <p className="text-center text-sm text-snow-dim">
         <Link
           href={isRegister ? `/login?next=${encodeURIComponent(next)}` : `/login?mode=register&next=${encodeURIComponent(next)}`}

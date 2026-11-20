@@ -1,4 +1,5 @@
 import { SITE_URL } from "@/lib/site";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -50,4 +51,35 @@ export function announceNewTitle(title: TitleInfo) {
     `✨ <b>Сайтка жаңы аниме кошулду!</b>\n\n<b>${esc(title.title_ky)}</b>` +
     (about ? `\n\n${esc(about.length > 300 ? about.slice(0, 297) + "…" : about)}` : "");
   return postToChannel({ poster: title.poster_url, html, buttonText: "Ачуу", url: `${SITE_URL}/anime/${title.slug}` });
+}
+
+/** Личные сообщения тем, у кого тайтл в избранном, «Смотрю» или «В планах», если Telegram привязан и уведомления включены. */
+export async function notifySubscribers(titleId: string, title: TitleInfo, ep: { season: number; number: number; dub_id: string | null }, dubName: string | null) {
+  const admin = createAdminClient();
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!admin || !token) return;
+  try {
+    const ids = new Set<string>();
+    const fav = await admin.from("favorites").select("user_id").eq("title_id", titleId);
+    for (const r of fav.data ?? []) ids.add(r.user_id);
+    const lists = await admin.from("title_lists").select("user_id, status").eq("title_id", titleId).in("status", ["watching", "planned"]);
+    for (const r of lists.data ?? []) ids.add(r.user_id);
+    if (ids.size === 0) return;
+    const { data: links } = await admin.from("telegram_links").select("chat_id").in("user_id", [...ids]).eq("notify", true);
+    const text =
+      `🆕 <b>${esc(title.title_ky)}</b>\n${ep.season > 1 ? `${ep.season}-сезон, ` : ""}${ep.number}-серия чыкты!` +
+      (dubName ? `\n🎙 ${esc(dubName)}` : "") +
+      `\n\n/stop — билдирүүлөрдү өчүрүү`;
+    const url = `${SITE_URL}/watch/${title.slug}/${ep.season}-${ep.number}${ep.dub_id ? `?dub=${ep.dub_id}` : ""}`;
+    const chats = (links ?? []).map((l) => l.chat_id as number);
+    for (let i = 0; i < chats.length; i += 20) {
+      await Promise.all(
+        chats.slice(i, i + 20).map((chat_id) =>
+          call("sendMessage", { chat_id, text, parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "▶ Көрүү", url }]] } }),
+        ),
+      );
+    }
+  } catch (e) {
+    console.error("[telegram] notifySubscribers", e);
+  }
 }
