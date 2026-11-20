@@ -354,6 +354,24 @@ export async function toggleFavorite(formData: FormData) {
   revalidatePath("/profile");
 }
 
+export async function setListStatus(formData: FormData) {
+  const supabase = await createClient();
+  const user = await getUser();
+  if (!supabase || !user) redirect("/login");
+
+  const titleId = String(formData.get("title_id"));
+  const slug = String(formData.get("slug"));
+  const status = String(formData.get("status"));
+
+  if (status === "none") {
+    await supabase.from("title_lists").delete().eq("user_id", user.id).eq("title_id", titleId);
+  } else if (["watching", "planned", "completed"].includes(status)) {
+    await supabase.from("title_lists").upsert({ user_id: user.id, title_id: titleId, status });
+  }
+  revalidatePath(`/anime/${slug}`);
+  revalidatePath("/profile");
+}
+
 export async function saveProgress(episodeId: string, positionSec: number) {
   const supabase = await createClient();
   const user = await getUser();

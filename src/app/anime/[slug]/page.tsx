@@ -3,12 +3,13 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { submitReview, toggleFavorite } from "@/app/actions";
+import { setListStatus, submitReview, toggleFavorite } from "@/app/actions";
 import { AnimeCard } from "@/components/AnimeCard";
 import { Comments } from "@/components/Comments";
 import { ShareButton } from "@/components/ShareButton";
 import {
   countCommentsByUsers,
+  getListStatus,
   getMyRating,
   getRating,
   getTitleBySlug,
@@ -73,7 +74,7 @@ export default async function AnimePage({
   const t = getDict(locale);
   const user = await getViewer();
 
-  const [allEpisodes, dubList, rating, comments, favorite, myRating] =
+  const [allEpisodes, dubList, rating, comments, favorite, myRating, myList] =
     await Promise.all([
       listEpisodes(title.id),
       listDubs(title.id),
@@ -81,6 +82,7 @@ export default async function AnimePage({
       listComments(title.id, undefined, user?.id),
       user ? isFavorite(user.id, title.id) : Promise.resolve(false),
       user ? getMyRating(user.id, title.id) : Promise.resolve(null),
+      user ? getListStatus(user.id, title.id) : Promise.resolve(null),
     ]);
 
   const {
@@ -216,6 +218,20 @@ export default async function AnimePage({
                 {favorite ? `✓ ${t.removeFavorite}` : `+ ${t.addFavorite}`}
               </button>
             </form>
+            {user && (
+              <form action={setListStatus} className="flex items-center gap-2">
+                <input type="hidden" name="title_id" value={title.id} />
+                <input type="hidden" name="slug" value={title.slug} />
+                <label htmlFor="list-status" className="sr-only">{t.myLists}</label>
+                <select id="list-status" name="status" defaultValue={myList ?? "none"} className="input w-auto">
+                  <option value="none">{t.listNone}</option>
+                  <option value="watching">{t.listWatching}</option>
+                  <option value="planned">{t.listPlanned}</option>
+                  <option value="completed">{t.listCompleted}</option>
+                </select>
+                <button type="submit" className="btn-ghost">{t.save}</button>
+              </form>
+            )}
             <ShareButton title={name} label={t.share} copied={t.linkCopied} />
           </div>
         </div>

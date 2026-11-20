@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { deleteComment, signOut, updateComment, updateUsername } from "@/app/actions";
 import { AvatarUploader } from "@/components/AvatarUploader";
 import { AnimeCard } from "@/components/AnimeCard";
-import { listContinueWatching, listFavorites, listMyComments } from "@/lib/data";
+import { listContinueWatching, listFavorites, listMyComments, listMyLists } from "@/lib/data";
 import { getDict, getLocale, pick } from "@/lib/i18n";
 import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
 
@@ -23,10 +23,11 @@ export default async function ProfilePage() {
   const supabase = await createClient();
   const { data: profile } = await supabase!.from("profiles").select("username, avatar_url").eq("id", user.id).maybeSingle();
 
-  const [favorites, resume, myComments] = await Promise.all([
+  const [favorites, resume, myComments, lists] = await Promise.all([
     listFavorites(user.id),
     listContinueWatching(user.id),
     listMyComments(user.id),
+    listMyLists(user.id),
   ]);
 
   return (
@@ -154,6 +155,27 @@ export default async function ProfilePage() {
           </ul>
         )}
       </section>
+
+      {(
+        [
+          ["watching", t.listWatching],
+          ["planned", t.listPlanned],
+          ["completed", t.listCompleted],
+        ] as const
+      ).map(([key, label]) =>
+        lists[key].length === 0 ? null : (
+          <section key={key}>
+            <h2 className="mb-4 text-xl font-bold">
+              {label} <span className="text-base font-normal text-snow-dim">({lists[key].length})</span>
+            </h2>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+              {lists[key].map((title) => (
+                <AnimeCard key={title.id} title={title} locale={locale} />
+              ))}
+            </div>
+          </section>
+        ),
+      )}
 
       <section>
         <h2 className="mb-4 text-xl font-bold">{t.favorites}</h2>

@@ -493,3 +493,37 @@ export async function countCommentsByUsers(ids: string[]): Promise<Record<string
   for (const r of data ?? []) counts[r.user_id] = (counts[r.user_id] ?? 0) + 1;
   return counts;
 }
+
+export type ListStatus = "watching" | "planned" | "completed";
+
+/** Статус тайтла в личном списке (null, если не в списке или SQL из supabase/lists.sql ещё не выполнен). */
+export async function getListStatus(userId: string, titleId: string): Promise<ListStatus | null> {
+  const supabase = await createClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("title_lists")
+    .select("status")
+    .eq("user_id", userId)
+    .eq("title_id", titleId)
+    .maybeSingle();
+  if (error) return null;
+  return (data?.status as ListStatus) ?? null;
+}
+
+export async function listMyLists(userId: string): Promise<Record<ListStatus, Title[]>> {
+  const out: Record<ListStatus, Title[]> = { watching: [], planned: [], completed: [] };
+  const supabase = await createClient();
+  if (!supabase) return out;
+  const { data, error } = await supabase
+    .from("title_lists")
+    .select("status, titles(*)")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) return out;
+  for (const row of data ?? []) {
+    const t = row.titles as unknown as Title | Title[] | null;
+    const title = Array.isArray(t) ? t[0] : t;
+    if (title && row.status in out) out[row.status as ListStatus].push(title);
+  }
+  return out;
+}
