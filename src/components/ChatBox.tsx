@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { deleteChatMessage, fetchChat, fetchOlderChat, sendChat } from "@/app/actions";
+import { deleteChatMessage, fetchChat, fetchOlderChat, getProfilesByIds, sendChat } from "@/app/actions";
 import { Avatar } from "@/components/Avatar";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 import type { ChatMessage } from "@/lib/types";
@@ -90,16 +90,10 @@ export function ChatBox({ room, initial, viewerId, isAdmin, labels, heightClass 
   const unknownIds = [...new Set(messages.map((m) => m.user_id))].filter((id) => !(id in people)).sort().join(",");
   useEffect(() => {
     if (!unknownIds) return;
-    const supabase = createBrowserSupabase();
-    if (!supabase) return;
-    void supabase
-      .from("profiles")
-      .select("id, username, avatar_url")
-      .in("id", unknownIds.split(","))
-      .then(({ data }) => {
+    void getProfilesByIds(unknownIds.split(",")).then((data) => {
         const next: Record<string, { username: string; avatar_url: string | null }> = {};
         for (const id of unknownIds.split(",")) next[id] = { username: "", avatar_url: null };
-        for (const p of data ?? []) next[p.id] = { username: p.username, avatar_url: p.avatar_url };
+        for (const p of data) next[p.id] = { username: p.username, avatar_url: p.avatar_url };
         setPeople((prev) => ({ ...prev, ...next }));
       });
   }, [unknownIds]);

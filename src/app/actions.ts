@@ -761,3 +761,13 @@ export async function removeAvatar(formData: FormData) {
   await flashError("Аватарка не удалена (выполни SQL из supabase/avatars.sql)", error);
   revalidatePath("/", "layout");
 }
+
+/** Ники и аватарки по id (для чата): запрос идёт через сервер, а не из браузера в базу. */
+export async function getProfilesByIds(ids: string[]): Promise<{ id: string; username: string; avatar_url: string | null }[]> {
+  const supabase = await createClient();
+  if (!supabase) return [];
+  const clean = ids.filter((id) => /^[0-9a-f-]{36}$/i.test(id)).slice(0, 100);
+  if (clean.length === 0) return [];
+  const { data } = await supabase.from("profiles").select("id, username, avatar_url").in("id", clean);
+  return data ?? [];
+}
