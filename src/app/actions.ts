@@ -77,6 +77,11 @@ function authMessage(error: { code?: string; message: string }, t: Dictionary): 
   return t.errGeneric;
 }
 
+/** Токен капчи из формы (пусто, если капча не включена). */
+function captchaToken(formData: FormData): string | undefined {
+  return String(formData.get("cf-turnstile-response") ?? "") || undefined;
+}
+
 export async function signIn(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const t = getDict(await getLocale());
   const supabase = await createClient();
@@ -84,6 +89,7 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
   const { error } = await supabase.auth.signInWithPassword({
     email: String(formData.get("email") ?? "").trim(),
     password: String(formData.get("password") ?? ""),
+    options: { captchaToken: captchaToken(formData) },
   });
   if (error) return { error: authMessage(error, t) };
   redirect(safePath(String(formData.get("next") ?? "/")));
@@ -98,6 +104,7 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   const { data, error } = await supabase.auth.signUp({
     email: String(formData.get("email") ?? "").trim(),
     password,
+    options: { captchaToken: captchaToken(formData) },
   });
   if (error) return { error: authMessage(error, t) };
   // Если в Supabase включено подтверждение почты, сессии ещё нет: просим открыть письмо

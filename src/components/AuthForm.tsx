@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { resetTurnstile, Turnstile } from "@/components/Turnstile";
 import { signIn, signUp, type AuthState } from "@/app/actions";
 
 type Labels = { email: string; password: string; login: string; register: string };
@@ -10,6 +11,10 @@ export function AuthForm({ mode, next, labels }: { mode: "login" | "register"; n
     mode === "login" ? signIn : signUp,
     undefined,
   );
+
+  useEffect(() => {
+    if (state) resetTurnstile();
+  }, [state]);
 
   return (
     <form action={action} className="card space-y-4 p-6">
@@ -34,6 +39,7 @@ export function AuthForm({ mode, next, labels }: { mode: "login" | "register"; n
           className="input"
         />
       </div>
+      <Turnstile />
       {state?.error && (
         <p role="alert" className="text-sm text-snow-dim">
           {state.error}
