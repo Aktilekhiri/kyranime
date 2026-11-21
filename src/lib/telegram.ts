@@ -24,8 +24,8 @@ async function call(method: string, body: Record<string, unknown>): Promise<bool
 }
 
 /** Пост в канал: постер (если есть) + подпись + кнопка. Ошибки не бросает: сайт работает и без Telegram. */
-async function postToChannel(opts: { poster: string | null; html: string; buttonText: string; url: string; chat?: string | number }): Promise<boolean> {
-  const reply_markup = { inline_keyboard: [[{ text: opts.buttonText, url: opts.url }]] };
+async function postToChannel(opts: { poster: string | null; html: string; buttonText?: string; url?: string; chat?: string | number }): Promise<boolean> {
+  const reply_markup = opts.buttonText && opts.url ? { inline_keyboard: [[{ text: opts.buttonText, url: opts.url }]] } : undefined;
   const photo = opts.poster && /^https:\/\//.test(opts.poster) ? opts.poster : null;
   if (photo) {
     const ok = await call("sendPhoto", { chat_id: opts.chat ?? CHANNEL, photo, caption: opts.html.slice(0, 1000), parse_mode: "HTML", reply_markup });
@@ -82,4 +82,9 @@ export async function notifySubscribers(titleId: string, title: TitleInfo, ep: {
   } catch (e) {
     console.error("[telegram] notifySubscribers", e);
   }
+}
+
+/** Своё сообщение в канал (из админки): простой текст, картинка и кнопка по желанию. */
+export function postCustomToChannel(opts: { text: string; image: string | null; buttonText?: string; url?: string }) {
+  return postToChannel({ poster: opts.image, html: esc(opts.text), buttonText: opts.buttonText, url: opts.url });
 }

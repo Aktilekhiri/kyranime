@@ -9,7 +9,7 @@ import { redirect } from "next/navigation";
 import { getDict, getLocale } from "@/lib/i18n";
 import { randomBytes } from "node:crypto";
 import { createAdminClient, telegramAuthConfigured } from "@/lib/supabase/admin";
-import { announceNewEpisode, announceNewTitle, notifySubscribers } from "@/lib/telegram";
+import { announceNewEpisode, announceNewTitle, notifySubscribers, postCustomToChannel } from "@/lib/telegram";
 import { THEMES, type Theme } from "@/lib/theme";
 import { createClient, getUser, isAdminEmail } from "@/lib/supabase/server";
 
@@ -895,4 +895,42 @@ export async function setTelegramNotify(formData: FormData) {
   if (!user || !admin) return;
   await admin.from("telegram_links").update({ notify: formData.get("on") === "1" }).eq("user_id", user.id);
   revalidatePath("/profile");
+}
+
+export type PostState = { ok?: string; error?: string } | undefined;
+
+/** Ручной пост в канал из админки. Отправка только после подтверждения в форме. */
+export async function sendChannelPost(_prev: PostState, formData: FormData): Promise<PostState> {
+  const supabase = await requireAdmin();
+  const kind = String(formData.get("kind"));
+  if (kind === "custom") {
+    const text = String(formData.get("text") ?? "").trim();
+    if (!text) return { error: "Напиши текст сообщения." };
+    const image = String(formData.get("image") ?? "").trim();
+    const buttonText = String(formData.get("button_text") ?? "").trim();
+    const url = String(formData.get("button_url") ?? "").trim();
+    if (image && !/^https:\/\//.test(image)) return { error: "Ссылка на картинку должна начинаться с https://" };
+    if (url && !/^https:\/\//.test(url)) return { error: "Ссылка кнопки должна начинаться с https://" };
+    const ok = await postCustomToChannel({ text, image: image || null, buttonText: url && buttonText ? buttonText : undefined, url: url && buttonText ? url : undefined });
+    return ok ? { ok: "Отправлено в канал." } : { error: "Telegram не принял сообщение." };
+  }
+  const { data: title } = await supabase
+    .from("titles")
+    .select("id, slug, title_ky, title_ru, poster_url, description_ky, genres")
+    .eq("id", String(formData.get("title_id")))
+    .maybeSingle();
+  if (!title) return { error: "Выбери тайтл." };
+  if (kind === "title") {
+    const ok = await announceNewTitle(title);
+    return ok ? { ok: `Анонс «${title.title_ky}» отправлен в канал.` } : { error: "Telegram не принял сообщение." };
+  }
+  const season = Number(formData.get("season")) || 1;
+  const number = Number(formData.get("number"));
+  if (!Number.isInteger(number) || number < 1) return { error: "Укажи номер серии." };
+  const { data: ep } = await supabase.from("episodes").select("dub_id, dubs(studio_name)").eq("title_id", title.id).eq("season", season).eq("number", number).limit(1).maybeSingle();
+  if (!ep) return { error: "Такой серии нет на сайте." };
+  const d = ep.dubs as unknown as { studio_name: string } | { studio_name: string }[] | null;
+  const dubName = (Array.isArray(d) ? d[0] : d)?.studio_name ?? null;
+  const ok = await announceNewEpisode(title, { season, number, dub_id: ep.dub_id as string | null }, dubName);
+  return ok ? { ok: `Серия ${number} «${title.title_ky}» отправлена в канал.` } : { error: "Telegram не принял сообщение." };
 }

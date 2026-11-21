@@ -47,6 +47,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         </p>
       )}
 
+      <Link href="/admin/post" className="btn-ghost inline-flex">✈ Пост в канал</Link>
+
       <section className="space-y-4">
         <h2 className="text-xl font-bold">Тайтлы</h2>
         {titles.length === 0 ? (
