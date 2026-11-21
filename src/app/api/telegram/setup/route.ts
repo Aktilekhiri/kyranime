@@ -14,14 +14,14 @@ export async function GET(req: Request) {
   const res = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ url: `${origin}/api/telegram`, secret_token: secret, allowed_updates: ["message"] }),
+    body: JSON.stringify({ url: `${origin}/api/telegram`, secret_token: secret, allowed_updates: ["message", "callback_query"] }),
   });
   const data = (await res.json().catch(() => ({}))) as { ok?: boolean; description?: string };
   // Меню команд (кнопка «Меню» в чате с ботом)
   const cmds = (ru: boolean) =>
     ru
-      ? [["random", "Случайное аниме"], ["history", "Последние вышедшие серии"], ["upcoming", "Что выходит сегодня"], ["calendar", "Расписание на неделю"], ["bug", "Сообщить об ошибке"], ["on", "Включить уведомления"], ["stop", "Выключить уведомления"], ["help", "Помощь"]]
-      : [["random", "Кокус аниме"], ["history", "Акыркы чыккан сериялар"], ["upcoming", "Бүгүн кандай серия чыгат"], ["calendar", "Жумалык расписание"], ["bug", "Ката жөнүндө жазуу"], ["on", "Билдирүүлөрдү күйгүзүү"], ["stop", "Билдирүүлөрдү өчүрүү"], ["help", "Жардам"]];
+      ? [["random", "Случайное аниме"], ["ongoing", "Онгоинги: подписка на серии"], ["list", "Мой список"], ["history", "Последние вышедшие серии"], ["upcoming", "Что выходит сегодня"], ["calendar", "Расписание на неделю"], ["bug", "Сообщить об ошибке"], ["on", "Включить уведомления"], ["stop", "Выключить уведомления"], ["help", "Помощь"]]
+      : [["random", "Кокус аниме"], ["ongoing", "Онгоингдерге жазылуу"], ["list", "Менин тизмем"], ["history", "Акыркы чыккан сериялар"], ["upcoming", "Бүгүн кандай серия чыгат"], ["calendar", "Жумалык расписание"], ["bug", "Ката жөнүндө жазуу"], ["on", "Билдирүүлөрдү күйгүзүү"], ["stop", "Билдирүүлөрдү өчүрүү"], ["help", "Жардам"]];
   for (const [lang, ru] of [[undefined, true], ["ky", false]] as const) {
     await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
       method: "POST",

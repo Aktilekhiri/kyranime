@@ -28,9 +28,39 @@ const html = (chatId: number, text: string, button?: { text: string; url: string
 
 const HELP =
   "Саламатсызбы! Бул kyranime.com сайтынын боту.\n\n" +
-  "/random — кокус аниме\n/history — акыркы чыккан сериялар\n/upcoming — бүгүн кандай серия чыгат\n/calendar — жумалык расписание\n" +
+  "/random — кокус аниме\n/ongoing — онгоингдерге жазылуу\n/list — менин тизмем\n/history — акыркы чыккан сериялар\n/upcoming — бүгүн кандай серия чыгат\n/calendar — жумалык расписание\n" +
   "/bug <текст> — ката жөнүндө жазуу\n/on, /stop — билдирүүлөрдү күйгүзүү / өчүрүү\n\n" +
-  "Привет! Это бот сайта kyranime.com. Команды выше: случайное аниме, последние серии, расписание на сегодня и неделю, /bug — сообщить об ошибке, /on и /stop — уведомления (нужно привязать Telegram в профиле).";
+  "Привет! Это бот сайта kyranime.com. Команды выше: случайное аниме, подписка на онгоинги (/ongoing), ваш список (/list), последние серии, расписание на сегодня и неделю, /bug — сообщить об ошибке, /on и /stop — уведомления (нужно привязать Telegram в профиле).";
+
+type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
+const ONGOING_TEXT =
+  "📡 <b>Онгоингдер</b>\nБаскычты басыңыз: аниме «Көрүп жатам» тизмесине кошулат, жаңы серия чыкканда өзүм жазам. Дагы бир жолу бассаңыз, алынып салынат.\n\nНажмите на тайтл, чтобы подписаться на новые серии (повторное нажатие отменяет). Нужен привязанный Telegram.";
+
+/** Кнопки онгоингов: ✅ если тайтл уже в «Смотрю»/«В планах», ➕ если нет. */
+async function ongoingKeyboard(admin: Admin, chatId: number) {
+  const ongoing = (await listTitles()).filter((x) => x.status === "ongoing").slice(0, 25);
+  const { data: link } = await admin.from("telegram_links").select("user_id").eq("chat_id", chatId).maybeSingle();
+  const mine = new Set<string>();
+  if (link) {
+    const { data } = await admin.from("title_lists").select("title_id").eq("user_id", link.user_id).in("status", ["watching", "planned"]).in("title_id", ongoing.map((t) => t.id));
+    for (const r of data ?? []) mine.add(r.title_id as string);
+  }
+  return { inline_keyboard: ongoing.map((t) => [{ text: `${mine.has(t.id) ? "✅" : "➕"} ${t.title_ky}`.slice(0, 60), callback_data: `s:${t.id}` }]) };
+}
+
+async function onCallback(cq: NonNullable<Update["callback_query"]>, admin: Admin) {
+  const chatId = cq.message?.chat.id;
+  const m = /^s:([0-9a-f-]{36})$/.exec(cq.data ?? "");
+  if (!chatId || !m) return tg("answerCallbackQuery", { callback_query_id: cq.id });
+  const { data: link } = await admin.from("telegram_links").select("user_id").eq("chat_id", chatId).maybeSingle();
+  if (!link) return tg("answerCallbackQuery", { callback_query_id: cq.id, show_alert: true, text: "Алгач профилде Telegram'ды байланыштырыңыз / Сначала привяжите Telegram в профиле на сайте" });
+  const { data: cur } = await admin.from("title_lists").select("status").eq("user_id", link.user_id).eq("title_id", m[1]).maybeSingle();
+  const on = cur?.status === "watching" || cur?.status === "planned";
+  if (on) await admin.from("title_lists").delete().eq("user_id", link.user_id).eq("title_id", m[1]);
+  else await admin.from("title_lists").upsert({ user_id: link.user_id, title_id: m[1], status: "watching" });
+  await tg("answerCallbackQuery", { callback_query_id: cq.id, text: on ? "Алынып салынды / Убрано" : "Кошулду, жаңы серия чыкканда жазам / Добавлено" });
+  if (cq.message) await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: cq.message.message_id, reply_markup: await ongoingKeyboard(admin, chatId) });
+}
 
 /** Простые команды без привязки аккаунта. Возвращает true, если команда обработана. */
 async function command(chatId: number, name: string, arg: string, admin: NonNullable<ReturnType<typeof createAdminClient>>, username: string | null): Promise<boolean> {
@@ -73,6 +103,27 @@ async function command(chatId: number, name: string, arg: string, admin: NonNull
     await html(chatId, `📅 ${parts.join("\n\n")}`);
     return true;
   }
+  if (name === "ongoing") {
+    await tg("sendMessage", { chat_id: chatId, text: ONGOING_TEXT, parse_mode: "HTML", reply_markup: await ongoingKeyboard(admin, chatId) });
+    return true;
+  }
+  if (name === "list") {
+    const { data: link } = await admin.from("telegram_links").select("user_id").eq("chat_id", chatId).maybeSingle();
+    if (!link) return await html(chatId, "Алгач профилде Telegram'ды байланыштырыңыз / Сначала привяжите Telegram в профиле на сайте"), true;
+    const { data } = await admin.from("title_lists").select("status, titles(slug, title_ky)").eq("user_id", link.user_id).in("status", ["watching", "planned"]).order("created_at", { ascending: false }).limit(60);
+    const groups: Record<string, string[]> = { watching: [], planned: [] };
+    for (const r of data ?? []) {
+      const t = r.titles as unknown as { slug: string; title_ky: string } | { slug: string; title_ky: string }[] | null;
+      const title = Array.isArray(t) ? t[0] : t;
+      if (title) groups[r.status as string]?.push(`• <a href="${SITE_URL}/anime/${title.slug}">${esc(title.title_ky)}</a>`);
+    }
+    const parts = [
+      groups.watching.length ? `▶️ <b>Көрүп жатам</b>\n${groups.watching.join("\n")}` : "",
+      groups.planned.length ? `📌 <b>Көрөм</b>\n${groups.planned.join("\n")}` : "",
+    ].filter(Boolean);
+    await html(chatId, parts.length ? parts.join("\n\n") : "Тизме бош. /ongoing аркылуу кошуңуз / Список пуст. Добавьте через /ongoing");
+    return true;
+  }
   if (name === "bug") {
     if (!arg) return await html(chatId, "Катаны жазыңыз: /bug <текст>\nНапишите: /bug <описание ошибки>"), true;
     // Куда слать: TELEGRAM_ADMIN_CHAT_ID, иначе привязанный Telegram админа (по ADMIN_EMAIL)
@@ -92,7 +143,7 @@ async function command(chatId: number, name: string, arg: string, admin: NonNull
   return false;
 }
 
-type Update = { message?: { text?: string; chat: { id: number; type: string }; from?: { username?: string } } };
+type Update = { callback_query?: { id: string; data?: string; message?: { message_id: number; chat: { id: number } } }; message?: { text?: string; chat: { id: number; type: string }; from?: { username?: string } } };
 
 async function reply(chatId: number, text: string, button?: { text: string; url: string }) {
   await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -112,6 +163,11 @@ export async function POST(req: Request) {
     return new Response("forbidden", { status: 401 });
   }
   const update = (await req.json().catch(() => ({}))) as Update;
+  if (update.callback_query) {
+    const adminCb = createAdminClient();
+    if (adminCb) await onCallback(update.callback_query, adminCb);
+    return Response.json({ ok: true });
+  }
   const msg = update.message;
   if (!msg?.text || msg.chat.type !== "private") return Response.json({ ok: true });
 
