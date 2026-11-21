@@ -17,7 +17,7 @@ begin
   insert into public.profiles (id, username)
   values (
     new.id,
-    coalesce(nullif(split_part(new.email, '@', 1), ''), 'user') || '_' || substr(new.id::text, 1, 4)
+    'user_' || substr(replace(new.id::text, '-', ''), 1, 8)
   );
   return new;
 end;
