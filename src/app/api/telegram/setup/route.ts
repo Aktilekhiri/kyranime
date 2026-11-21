@@ -17,6 +17,18 @@ export async function GET(req: Request) {
     body: JSON.stringify({ url: `${origin}/api/telegram`, secret_token: secret, allowed_updates: ["message"] }),
   });
   const data = (await res.json().catch(() => ({}))) as { ok?: boolean; description?: string };
+  // Меню команд (кнопка «Меню» в чате с ботом)
+  const cmds = (ru: boolean) =>
+    ru
+      ? [["random", "Случайное аниме"], ["history", "Последние вышедшие серии"], ["upcoming", "Что выходит сегодня"], ["calendar", "Расписание на неделю"], ["bug", "Сообщить об ошибке"], ["on", "Включить уведомления"], ["stop", "Выключить уведомления"], ["help", "Помощь"]]
+      : [["random", "Кокус аниме"], ["history", "Акыркы чыккан сериялар"], ["upcoming", "Бүгүн кандай серия чыгат"], ["calendar", "Жумалык расписание"], ["bug", "Ката жөнүндө жазуу"], ["on", "Билдирүүлөрдү күйгүзүү"], ["stop", "Билдирүүлөрдү өчүрүү"], ["help", "Жардам"]];
+  for (const [lang, ru] of [[undefined, true], ["ky", false]] as const) {
+    await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ commands: cmds(ru).map(([command, description]) => ({ command, description })), ...(lang ? { language_code: lang } : {}) }),
+    }).catch(() => {});
+  }
   // Диагностика: что Telegram видит у вебхука (последняя ошибка, сколько сообщений ждёт)
   const info = await fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`)
     .then((r) => r.json() as Promise<{ result?: { url?: string; pending_update_count?: number; last_error_date?: number; last_error_message?: string } }>)
